@@ -1,0 +1,29 @@
+# Data and model artefacts -- large, regenerable, or private
+data/
+outputs/
+logs/
+*.pt
+*.ckpt
+*.npz
+*.h5
+
+# Generated results and samples
+D_intra/results/samples/
+D_inter/results/samples/
+D_inter/private_inference/out/
+D_intra/private_inference/out/
+
+# Vendored virtualenvs and caches
+**/.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Backups
+_backup_*/
+_removed_from_DiGress/
+
+# Third-party checkouts with their own git history
+graph-coarsening/
+k-mis-pool/
+DiGress/

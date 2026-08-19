@@ -1,0 +1,4 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+pairs_file: 'pairs_lux2minn_k7.pt'

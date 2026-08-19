@@ -1,0 +1,35 @@
+configuration A: 882 paired supernodes
+  full     (10 dims): ['n', 'rho_in', 'k', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7']
+  ablation (3 dims): ['n', 'rho_in', 'k']
+
+metric                     full   no-hop     real  abl-full                95% CI
+---------------------------------------------------------------------------------
+connected %             95.0113  98.1859 100.0000    3.1746    [+1.4739, +4.8753]  <-- real
+acyclic %               79.7052  85.4875  88.0952    5.7823    [+2.8345, +8.7302]  <-- real
+components               1.0522   1.0181   1.0000   -0.0340    [-0.0522, -0.0159]  <-- real
+edges (mean)            12.4535  12.4649  12.4218    0.0113    [-0.0397, +0.0624]
+density                  0.1854   0.1838   0.1840   -0.0016    [-0.0024, -0.0008]  <-- real
+node degree              1.8823   1.8840   1.8775    0.0017    [-0.0059, +0.0095]
+edge-count MAE           0.3039   0.2494   0.0000   -0.0544    [-0.0975, -0.0125]  <-- real
+degree dist. vs real     0.0360   0.0108   0.0000   -0.0252    [-0.0359, -0.0128]  <-- real
+spectrum vs real         0.0704   0.0704   0.0000   -0.0000    (no CI, see below)
+
+CI straddling 0 => dropping h1..h7 makes no measurable difference to
+that metric, whichever direction the point estimate points.
+Spectrum has no interval: it is O(n^2) per draw and n = 882.
+
+% ---- LaTeX: hop-histogram ablation ----
+\begin{tabular}{lrrr}
+\toprule
+ & Full $c_i$ & No hops & Real \\
+ & \textsc{10-dim} & \textsc{3-dim} & \\
+\midrule
+Connected (\%) & 95.0 & 98.2 & 100.0 \\
+Acyclic (\%) & 79.7 & 85.5 & 88.1 \\
+Edges (mean) & 12.45 & 12.46 & 12.42 \\
+Density (mean) & 0.1854 & 0.1838 & 0.1840 \\
+\midrule
+Degree dist.\ vs.\ real $\downarrow$ & 0.0360 & 0.0108 & 0.0000 \\
+Spectrum vs.\ real $\downarrow$ & 0.0704 & 0.0704 & 0.0000 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,7 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C, no-hop ablation: condition truncated to [n, rho_in, k], input width 15.
+# Same splits and seed as pairs_C_lux2minn_k7k4.pt; only h1..h7 are dropped.
+# Needs a real training run -- k=4 clusters are in the training set.
+pairs_file: 'pairs_C_lux2minn_k7k4_nohop.pt'

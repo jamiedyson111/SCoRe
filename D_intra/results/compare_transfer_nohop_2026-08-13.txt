@@ -1,0 +1,45 @@
+  A: 882 matched graphs  (train Lux -> test Lux)
+  B: 48 matched graphs  (train Lux -> test Minn)
+  C: 48 matched graphs  (train Lux+Minn -> test Minn)
+
+TABLE 1 -- Realism of generated clusters
+==============================================================================
+                                          A                B                C
+                                 gen / real       gen / real       gen / real
+------------------------------------------------------------------------------
+connected %                    98.2 / 100.0     87.5 / 100.0     62.5 / 100.0
+acyclic %                       85.5 / 88.1      37.5 / 27.1      20.8 / 27.1
+components                      1.02 / 1.00      1.12 / 1.00      1.44 / 1.00
+edges                         12.46 / 12.42    29.04 / 29.50    29.33 / 29.50
+density                     0.1838 / 0.1840  0.1031 / 0.1059  0.1078 / 0.1059
+node degree                     1.88 / 1.88      2.10 / 2.13      2.12 / 2.13
+------------------------------------------------------------------------------
+degree dist. vs real      0.0108 (0.577)   0.1338 (0.414)   0.0511 (0.435)   
+spectrum vs real          0.0704 (0.131)   0.0569 (0.120)   0.0597 (0.107)   
+  (value, random-ER floor in brackets; lower is better)
+
+TABLE 2 -- Transfer to Minnesota (identical held-out supernodes)
+==============================================================================
+                                   B: Lux only   C: Lux + Minn       delta
+------------------------------------------------------------------------------
+connected %                               87.5            62.5    -25.0000  worse
+acyclic %                                 37.5            20.8    -16.6667  better
+edges (mean)                             29.04           29.33     +0.2917  better
+degree dist. vs real                    0.1338          0.0511     -0.0827  better
+spectrum vs real                        0.0569          0.0597     +0.0028  worse
+edge-count MAE                            1.38            1.58     +0.2083  worse
+------------------------------------------------------------------------------
+  real Minnesota reference: connected 100.0%, acyclic 27.1%, edges 29.50
+  test set: 48 supernodes (shared by B and C)
+
+TABLE 3 -- Is rho_in used, beyond what n implies?
+==============================================================================
+                                 partial|2/n   excess corr   MAE model   MAE m=n-1
+------------------------------------------------------------------------------
+A: train Lux -> test Lux               0.165         0.188        0.25        0.19
+B: train Lux -> test Minn              0.139         0.140        1.38        2.79
+C: train Lux+Minn -> test Minn         0.196         0.130        1.58        2.79
+------------------------------------------------------------------------------
+  partial|2/n near 0 => the model conditions on SIZE alone.
+  'MAE m=n-1' is a rule using only the node count; if it beats the
+  model, the model adds nothing on edge count.

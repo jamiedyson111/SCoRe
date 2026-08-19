@@ -1,0 +1,5 @@
+name: generic
+remove_h: null
+datadir: 'data/generic/'
+# a list of adjacency matrices saved with torch.save(...) to data/generic/raw/
+graph_file: 'graphs.pt'

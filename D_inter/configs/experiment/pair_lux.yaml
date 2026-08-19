@@ -1,0 +1,50 @@
+# @package _global_
+# Conditional inter-cluster model D_inter: 10902 supernode pairs from
+# luxembourg_osm at k=7, each one combined graph of median 28 nodes.
+#
+# Only the cross block B_ij is generated. It is very sparse -- mean density
+# 0.0068, median w_ij = 1 -- so E_CE will look small from the first epoch and
+# tells you little on its own. Watch val/cross_CE against the uniform-placement
+# baseline printed by the sampling metric.
+general:
+    name : 'pair_lux'
+    gpus : 1
+    wandb: 'disabled'
+    resume: null
+    test_only: null
+    check_val_every_n_epochs: 20
+    sample_every_val: 2
+    samples_to_generate: 128      # pooled out-degrees; too few pairs and W_1 is noise
+    samples_to_save: 9
+    chains_to_save: 1
+    final_model_samples_to_generate: 512
+    final_model_samples_to_save: 30
+    final_model_chains_to_save: 5
+train:
+    # MEASURED 2026-08-07 over 534 epochs (12h A100, ~76 s/epoch): val/cross_CE
+    # bottoms out at 0.00865 at EPOCH 179 and rises monotonically after ~180,
+    # reaching 0.0151 by epoch 499 while train E_CE keeps falling 0.030 -> 0.005.
+    # That is overfitting, not slow convergence -- 8176 train pairs against 5.4M
+    # params. Epoch 179 also happens to be the val/epoch_NLL minimum (11.5371),
+    # so save_top_k on NLL does keep the right checkpoint.
+    #
+    # Lowered from 1000 to 250 for the V2 rerun. The checkpoint callback picks
+    # the val/epoch_NLL minimum for you either way, so the extra 750 epochs only
+    # ever bought queue time. Widening the condition 6 -> 11 does not change the
+    # 8176-vs-5.4M-params ratio that drives the overfit, so do not expect the
+    # elbow to move far from 180; if it does, raise this rather than trusting a
+    # checkpoint at the boundary.
+    n_epochs: 250
+    batch_size: 32                # combined graphs, up to 122 nodes -- E is dense
+    save_model: True
+model:
+    diffusion_steps: 500
+    n_layers: 6
+    lambda_train: [5, 0]        # [E weight, y weight]. y weight MUST stay 0 --
+                                # y is an input condition, never a prediction target.
+    extra_features: 'all'
+
+    hidden_mlp_dims: { 'X': 128, 'E': 64, 'y': 128 }
+
+    # dx % n_head == 0
+    hidden_dims: { 'dx': 256, 'de': 64, 'dy': 64, 'n_head': 8, 'dim_ffX': 256, 'dim_ffE': 64, 'dim_ffy': 256 }

@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# produced by k-mis-pool/make_pairs.py, uploaded to data/cluster_lux/raw/
+pairs_file: 'pairs_luxembourg_osm_k7.pt'

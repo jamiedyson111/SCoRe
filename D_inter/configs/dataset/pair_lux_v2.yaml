@@ -1,0 +1,22 @@
+# V2 of the D_inter condition. Select with `dataset=pair_lux_v2`; `dataset=pair_lux`
+# is the V1 default. `name` stays 'pair_lux' because src/main.py dispatches on it.
+#
+# c_ij = [n_i, rho_i, n_j, rho_j, w_ij, k, r0, r1, r2, r3, r4+]  (11 dims)
+#
+# r_{i->j} is the out-degree histogram of the block over V_i. Two things to know
+# before spending GPU time on it, both measured on Luxembourg k=7 on 2026-08-17:
+#
+#   1. r is exactly implied by (n_i, w_ij) for 10806/10902 pairs (99.12%). The
+#      model already receives n_i and w_ij, so V2 adds information on ~96 pairs.
+#      r3 and r4+ are constant zero at this k -- dead bins.
+#   2. r is a statistic OF THE BLOCK BEING GENERATED, not of the coarse graph, so
+#      private inference cannot use a V2 checkpoint until stage 0 publishes 5
+#      numbers per connected pair describing the true B_ij. That is a real extra
+#      disclosure. Until make_private_release.py emits it, the cond_names assert
+#      in sample_private_blocks.py fires -- by design, not a bug to work around.
+#
+# Regenerate the raw file with R_BINS/COND_NAMES set in dataprep/make_pair_blocks.py.
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+pairs_file: 'pairs_inter_luxembourg_osm_k7_v2.pt'

@@ -1,0 +1,8 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C: train Luxembourg (k=7) + Minnesota (k=4) -> test Minnesota (k=4).
+# Needs a real training run: the training set now contains k=4 clusters, so this
+# model differs from every earlier C. 90 private train pairs oversampled x24 to
+# 25% of 8,771; validates on 22 graphs rather than the 7 the k=7 C had.
+pairs_file: 'pairs_C_lux2minn_k7k4.pt'

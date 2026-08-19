@@ -1,0 +1,14 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# produced by D_inter/dataprep/make_pair_blocks.py, uploaded to data/pair_lux/raw/
+#
+# V1, the 6-dim condition [n_i, rho_i, n_j, rho_j, w_ij, k]. THE DEFAULT, because
+# it is what the private-inference releases supply: make_private_release.py
+# publishes exactly these six names, so stage 2 asserts out against anything else.
+#
+# For the 11-dim V2 condition (V1 + the r_{i->j} out-degree histogram) select
+# `dataset=pair_lux_v2` instead -- see that file for what it costs. The processed
+# cache is keyed off pairs_file, so the two never collide and switching back and
+# forth is free.
+pairs_file: 'pairs_inter_luxembourg_osm_k7.pt'

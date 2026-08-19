@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# A: train Luxembourg -> test Luxembourg (in-distribution reference)
+pairs_file: 'pairs_A_lux2minn_k7.pt'
