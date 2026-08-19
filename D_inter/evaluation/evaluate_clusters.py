@@ -29,7 +29,6 @@ Answers two separate questions. Keep them separate when reporting.
      needs a second BlueBEAR run. It is the strongest available from one file.
 """
 import argparse
-import os
 
 import numpy as np
 import networkx as nx

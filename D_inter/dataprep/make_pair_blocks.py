@@ -253,8 +253,20 @@ def main():
     # slicing them out, so cond_mean/cond_std keep the full condition width and
     # every downstream consumer -- sample_private_blocks.py above all -- can go
     # on applying (y_raw - mean) / std to the whole vector unchanged.
+    #
+    # A feature with (near-)zero training variance is left on its RAW scale
+    # rather than divided by a tiny epsilon -- the same rule as
+    # D_intra/extraction/kmis_pairs.py:standardise(), and for the same reason.
+    # `k` is constant here (one graph, one locality), so clamping its std to
+    # 1e-6 mapped any unseen k to a magnitude of ~1e6 and destroyed the forward
+    # pass instead of degrading. Setting the divisor to 1 leaves training
+    # unchanged -- (k - k)/1 == (k - k)/1e-6 == 0 -- and turns an unseen k into
+    # a shift of a few units. Existing checkpoints stay valid for exactly that
+    # reason: the values they trained on do not move.
     Y = torch.stack([r['y_raw'] for r in splits[0]])
-    mean, std = Y.mean(0), Y.std(0).clamp(min=1e-6)
+    mean, std = Y.mean(0), Y.std(0)
+    constant = std < 1e-6
+    std = torch.where(constant, torch.ones_like(std), std)
     keep = torch.tensor(STANDARDISE)
     mean = torch.where(keep, mean, torch.zeros_like(mean))
     std = torch.where(keep, std, torch.ones_like(std))
@@ -263,7 +275,8 @@ def main():
             r['y'] = (r['y_raw'] - mean) / std
 
     blob = {'k': K, 'source': NAME, 'cond_names': COND_NAMES,
-            'cond_mean': mean, 'cond_std': std, 'split_by': SPLIT_BY,
+            'cond_mean': mean, 'cond_std': std, 'cond_constant': constant,
+            'split_by': SPLIT_BY,
             'standardise': torch.tensor(STANDARDISE), 'r_bins': R_BINS,
             'splits': splits}
 

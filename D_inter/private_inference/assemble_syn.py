@@ -489,7 +489,7 @@ def main():
                      f"{a['precision']:>9.4f}{a['recall']:>9.4f}{a['f1']:>9.4f}"
                      f"{a['jaccard']:>9.4f}{who}\n")
 
-    L.append(f"\nBLOCK FIDELITY vs the release (synthetic column)\n")
+    L.append("\nBLOCK FIDELITY vs the release (synthetic column)\n")
     L.append(f"  internal edges - rho_in target : mean {int_err.mean():+.3f}, "
              f"mean |err| {np.abs(int_err).mean():.3f}\n")
     L.append(f"  |B_ij| - w_ij                  : exact "

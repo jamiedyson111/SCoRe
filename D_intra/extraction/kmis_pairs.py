@@ -92,7 +92,6 @@ def extract_pairs(graph_key, k, cond=("n", "rho_in", "k"), min_n=3, root="datase
             f"k_hist={k_hist} < k={k}: the histogram would truncate rings that can "
             f"legitimately be occupied at locality {k}, so sum(h) would stop being 1.")
     adj, A = load_graph(graph_key, root)
-    n = adj.size(0)
     deg = adj.sum(dim=1)
 
     rank = orderings.Greedy()(deg, adj)                    # descending degree

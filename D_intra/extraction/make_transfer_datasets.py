@@ -208,7 +208,7 @@ def main():
         # B trains public-only, so k is constant there and left on its raw scale;
         # the private test records then arrive at (k_priv - k_pub). Print the
         # number rather than describing it, so it is checkable against the log.
-        print(f"\n  NOTE: k differs between train and test. In B, k has zero training")
+        print("\n  NOTE: k differs between train and test. In B, k has zero training")
         print(f"  variance, so the private test records enter the model at "
               f"{k_priv - k_pub:+d} on")
         print("  the k column where training was always 0. C's training set contains")

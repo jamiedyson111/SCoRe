@@ -189,7 +189,7 @@ def main():
         print("\n% ---- LaTeX: hop-histogram ablation ----")
         print("\\begin{tabular}{lrrr}")
         print("\\toprule")
-        print(f" & Full $c_i$ & No hops & Real \\\\")
+        print(" & Full $c_i$ & No hops & Real \\\\")
         print(f" & \\textsc{{{len(names_f)}-dim}} & \\textsc{{{len(names_a)}-dim}} & \\\\")
         print("\\midrule")
         print(f"Connected (\\%) & {af['connected']:.1f} & {aa['connected']:.1f} & {ar['connected']:.1f} \\\\")

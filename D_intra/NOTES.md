@@ -112,7 +112,12 @@ A (Lux->Lux): density 0.2120 vs real 0.2124; degree dist 0.0544 vs ER floor
 Transfer: C beats B on 5 of 6. Edge-count MAE 2.98 vs 6.53.
 **C is the only config that beats the naive `m = n-1` baseline.**
 
-Training: A 122.20 @ ep179, B 118.73 @ ep139, C 320.97 @ ep29.
+Training: the per-configuration best-epoch table lived here and in
+`results/checkpoints/README.md`, and both went stale at the 2026-08-12
+retrain without anything flagging it -- the numbers were still being quoted
+days later. Re-derive from `results/logs/` rather than from a table no run
+updates. The one figure re-verified since: **B epoch 99, val NLL 86.65**,
+which is the checkpoint private inference should use.
 
 ## Things that are easy to forget
 

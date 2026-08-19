@@ -29,7 +29,6 @@ import os
 import numpy as np
 import scipy.sparse as sp
 import torch
-from scipy.sparse.csgraph import breadth_first_order
 
 from benchmark import datasets
 from kmis import orderings, reduce, sample
