@@ -120,6 +120,35 @@ Then, on BlueBEAR — samples B from the existing checkpoints, trains C:
 bash scripts/run_k4_transfer.sh
 ```
 
+## Version 3: centroid node type and hop embedding
+
+Two changes from the method section (V A 1) b). Both are switches, off by
+default, so earlier runs and checkpoints are unaffected.
+
+- **Centroid node type** (`dataset.mark_centroid=true`). `X` goes from one dummy
+  class to two: `[0, 1]` for the centroid, `[1, 0]` for every other member. `h`
+  is measured from the centroid, which the model could not otherwise identify.
+  `X` is observed, not generated: it is held clean while noising, left out of the
+  NLL, and imposed at every sampling step with node 0 as the centroid. Only `E`
+  is diffused. No `.pt` rebuild is needed; every record already carries
+  `centre`. The processed cache gets a `_centroid` suffix so it cannot collide
+  with the 1-class one.
+- **Hop embedding** (`model.hop_embed_dim=1`). `h1..h7` pass through
+  `MLP_h: R^7 -> R^1` (hidden width `model.hop_embed_hidden`, 32) before `y`
+  reaches the transformer, so `c_i = [n, rho_in, k, e_h]` is 4 dims, not 10.
+  `MLP_h` trains end to end with the denoising loss. The stored `y` is unchanged.
+
+Same datasets, splits and settings as A/B/C, so the results compare directly:
+
+```bash
+bash scripts/run_all_transfer.sh A_v3 B_v3 C_v3
+sbatch scripts/run_sample_conditional.sh B_k4_v3    # B_v3 on Minnesota at k=4
+```
+
+`_centroid` and `_hopmlp` in place of `_v3` run each change on its own. Expected
+log line: `Size of the input features 8 2 16` for `_v3` (`8 2 22` centroid only,
+`7 2 16` hop embedding only).
+
 ## Running it
 
 Extraction and evaluation need the `kmis` env (torch 1.11 + torch_sparse).

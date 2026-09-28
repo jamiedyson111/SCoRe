@@ -31,3 +31,15 @@ model:
 
     # dx % n_head == 0
     hidden_dims: { 'dx': 256, 'de': 64, 'dy': 64, 'n_head': 8, 'dim_ffX': 256, 'dim_ffE': 64, 'dim_ffy': 256 }
+
+    # Version 3, method section V A 1) b. Both off by default, so every earlier
+    # run and checkpoint behaves exactly as before. scripts/run_transfer.sh
+    # switches them on for the *_v3 configurations.
+    #   hop_embed_dim   d_h of the hop embedding e_h = MLP_h(h). null = h enters
+    #                   y raw. 1 gives c_i = [n, rho_in, k, e_h], 4 dims instead of 10.
+    hop_embed_dim: null
+    hop_embed_hidden: 32
+dataset:
+    # Mark the centroid as its own node type: X in R^{n x 2}, [0, 1] for the
+    # centroid and [1, 0] otherwise, held fixed during diffusion.
+    mark_centroid: False

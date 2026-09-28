@@ -10,6 +10,12 @@
 #
 #     bash scripts/run_all_transfer.sh B C
 #
+# Version 3 (centroid node type + hop embedding), same datasets and settings:
+#
+#     bash scripts/run_all_transfer.sh A_v3 B_v3 C_v3
+#
+# _centroid and _hopmlp run each change on its own (see run_transfer.sh).
+#
 # WHY CHAINED rather than one long job: run_transfer.sh asks for 6 hours. Doing
 # all three inside a single allocation would need 18, which the QOS will not
 # grant. Chaining keeps three separate 6h jobs that happen to run in order.
@@ -31,8 +37,9 @@ CFGS=("$@")
 DEP=""
 for CFG in "${CFGS[@]}"; do
     case "$CFG" in
-        A|B|C) ;;
-        *) echo "usage: bash scripts/run_all_transfer.sh [A] [B] [C]" >&2; exit 1 ;;
+        A|B|C|[ABC]_v3|[ABC]_centroid|[ABC]_hopmlp) ;;
+        *) echo "usage: bash scripts/run_all_transfer.sh [A] [B] [C]  (each optionally _v3|_centroid|_hopmlp)" >&2
+           exit 1 ;;
     esac
 
     if [ -z "$DEP" ]; then
@@ -53,6 +60,7 @@ cat <<'EOF'
   logs      ls -t logs/transfer_*.out | head -3
   check     grep -m1 "input features" $(ls -t logs/transfer_*.out | head -1)
             -> must read "Size of the input features 7 2 22"
+               (_centroid 8 2 22, _hopmlp 7 2 16, _v3 8 2 16)
   cancel    scancel <jobid> [<jobid> ...]
             scancel takes ONE --name, so cancel by job id, not by name
 

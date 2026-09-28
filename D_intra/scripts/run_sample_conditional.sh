@@ -52,6 +52,17 @@ ROOT=/rds/projects/c/chenhp-graphsyn/D_intra
 # derived from $CFG rather than $NAME so two datasets sharing one checkpoint
 # still write to different run directories instead of overwriting each other.
 CFG="${1:-}"
+# Version 3 suffix (_v3 | _centroid | _hopmlp), as in run_transfer.sh. The
+# checkpoint comes from the suffixed run and the dataset gets the same switches,
+# so B_k4_v3 resamples the transfer_B_v3 model on Minnesota at k=4.
+V3=()
+SFX=""
+case "$CFG" in
+    *_v3)       SFX=_v3;       V3=(dataset.mark_centroid=true model.hop_embed_dim=1) ;;
+    *_centroid) SFX=_centroid; V3=(dataset.mark_centroid=true) ;;
+    *_hopmlp)   SFX=_hopmlp;   V3=(model.hop_embed_dim=1) ;;
+esac
+CFG="${CFG%$SFX}"
 case "$CFG" in
     A|B|C)  DATASET="cluster_${CFG}_lux2minn_k7";       NAME="transfer_$CFG" ;;
     A_nohop|B_nohop|C_nohop)
@@ -75,10 +86,12 @@ case "$CFG" in
 
     legacy) DATASET="cluster_lux";                       NAME="cluster_lux" ;;
     *) echo "usage: sbatch scripts/run_sample_conditional.sh CFG [CKPT]" >&2
-       echo "  CFG = {A|B|C}[_nohop] | {B|C}_k4[_nohop] | legacy" >&2
+       echo "  CFG = {A|B|C}[_nohop] | {B|C}_k4[_nohop] | legacy, optionally + _v3|_centroid|_hopmlp" >&2
        exit 1 ;;
 esac
 
+NAME="$NAME$SFX"
+CFG="$CFG$SFX"
 CKPT="${2:-}"
 
 if [ -z "$CKPT" ]; then
@@ -160,6 +173,7 @@ SAMPLE_NAME="transfer_${CFG}_sample"
 python3 sample_conditional.py \
     dataset="$DATASET" \
     +experiment=cluster_lux \
+    ${V3[@]+"${V3[@]}"} \
     general.name="$SAMPLE_NAME" \
     general.gpus=1 \
     general.wandb=disabled \

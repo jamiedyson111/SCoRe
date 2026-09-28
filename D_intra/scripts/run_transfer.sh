@@ -35,7 +35,22 @@ ROOT=/rds/projects/c/chenhp-graphsyn/D_intra
 [ -d "$ROOT/src" ] || ROOT=$(dirname "$ROOT")
 CFG="${1:-}"
 
+# Version 3 (method section V A 1) b): a suffix on any configuration below.
+#   _v3        both changes: centroid node type + hop embedding MLP_h (d_h = 1)
+#   _centroid  the centroid node type alone
+#   _hopmlp    the hop embedding alone
+# Same datasets, splits and settings as the run without the suffix, so the two
+# are directly comparable. NAME keeps the suffix, so each gets its own run
+# directory and checkpoints.
+V3=()
+BASE="$CFG"
 case "$CFG" in
+    *_v3)       BASE="${CFG%_v3}";       V3=(dataset.mark_centroid=true model.hop_embed_dim=1) ;;
+    *_centroid) BASE="${CFG%_centroid}"; V3=(dataset.mark_centroid=true) ;;
+    *_hopmlp)   BASE="${CFG%_hopmlp}";   V3=(model.hop_embed_dim=1) ;;
+esac
+
+case "$BASE" in
     A) DATASET=cluster_A_lux2minn_k7 ;;
     B) DATASET=cluster_B_lux2minn_k7 ;;
     C) DATASET=cluster_C_lux2minn_k7 ;;
@@ -54,11 +69,16 @@ case "$CFG" in
     C_k4)       DATASET=cluster_C_lux2minn_k7k4 ;;
     C_k4_nohop) DATASET=cluster_C_lux2minn_k7k4_nohop ;;
     *) echo "usage: sbatch scripts/run_transfer.sh {A|B|C}[_nohop] | C_k4[_nohop]" >&2
+       echo "       optionally suffixed _v3, _centroid or _hopmlp" >&2
        exit 1 ;;
 esac
+if [ ${#V3[@]} -gt 0 ] && [[ "$BASE" == *_nohop ]] && [[ "${V3[*]}" == *hop_embed* ]]; then
+    echo "ERROR: $CFG embeds h, but the _nohop condition has no h to embed" >&2
+    exit 1
+fi
 
 NAME="transfer_$CFG"
-echo "configuration $CFG  ->  dataset=$DATASET  name=$NAME"
+echo "configuration $CFG  ->  dataset=$DATASET  name=$NAME  ${V3[*]:-}"
 
 # THE LINE TO CHECK in this job's log:  "Size of the input features 7 2 NN"
 #
@@ -73,6 +93,11 @@ echo "configuration $CFG  ->  dataset=$DATASET  name=$NAME"
 # PyG reuses that silently, with no error raised. The _nohop datasets have
 # distinct filenames precisely so they get their own cache entry.
 # If it says 12 the condition is not reaching the model at all.
+#
+# Version 3 changes the first and last numbers:
+#   _centroid   8 2 22    X gains the centroid class (2 classes + 6 extra)
+#   _hopmlp     7 2 16    h1..h7 become one embedded number: 4 + 1 + 11
+#   _v3         8 2 16
 #
 # Also expect the edge marginal:
 #   A, B   [0.8768, 0.1232]     Luxembourg train
@@ -110,6 +135,7 @@ cd "$ROOT/src"
 python3 main.py \
     dataset="$DATASET" \
     +experiment=cluster_lux \
+    ${V3[@]+"${V3[@]}"} \
     general.name="$NAME" \
     general.wandb=disabled \
     train.n_epochs=200 \
@@ -155,6 +181,7 @@ echo "sampling from: $CKPT"
 python3 sample_conditional.py \
     dataset="$DATASET" \
     +experiment=cluster_lux \
+    ${V3[@]+"${V3[@]}"} \
     general.name="${NAME}_sample" \
     general.gpus=1 \
     general.wandb=disabled \

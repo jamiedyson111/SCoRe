@@ -49,6 +49,33 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         # returns False, and nothing guarded by it runs.
         self.pair_mode = getattr(dataset_infos, 'pair_mode', False)
 
+        # OBSERVED NODE TYPES (D_intra with the centroid marked). X says which
+        # node is the centroid; it is given, never generated, so it is held clean
+        # while noising, imposed at every sampling step, and left out of the NLL.
+        # pair_mode also fixes X, but additionally fixes most of E.
+        self.fixed_X = getattr(dataset_infos, 'fixed_X', False)
+
+        # HOP EMBEDDING (D_intra). With model.hop_embed_dim = d_h, the hop
+        # histogram h1..hk inside y is replaced by MLP_h(h) in R^{d_h} before y
+        # reaches the transformer, so c_i = [n, rho_in, k, e_h]. The MLP trains
+        # end to end with the denoising loss. Off (null) for every other run.
+        hop_dim = cfg.model.get('hop_embed_dim', None)
+        self.hop_cols = None
+        self.hop_mlp = None
+        model_input_dims = input_dims
+        if hop_dim:
+            names = list(getattr(dataset_infos, 'cond_names', []))
+            hop = [i for i, c in enumerate(names) if c[:1] == 'h' and c[1:].isdigit()]
+            if not hop or hop != list(range(hop[0], hop[-1] + 1)):
+                raise ValueError(f"model.hop_embed_dim={hop_dim} needs contiguous h1..hk "
+                                 f"columns in the condition, got {names}")
+            self.hop_cols = (hop[0], hop[-1] + 1)
+            hidden = cfg.model.get('hop_embed_hidden', 32)
+            self.hop_mlp = nn.Sequential(nn.Linear(len(hop), hidden), nn.ReLU(),
+                                         nn.Linear(hidden, hop_dim))
+            model_input_dims = {**input_dims, 'y': input_dims['y'] - len(hop) + hop_dim}
+            self.ydim = model_input_dims['y']
+
         self.val_nll = NLL()
         self.val_cross_CE = CrossEntropyMetric()
         self.test_cross_CE = CrossEntropyMetric()
@@ -71,7 +98,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         self.domain_features = domain_features
 
         self.model = GraphTransformer(n_layers=cfg.model.n_layers,
-                                      input_dims=input_dims,
+                                      input_dims=model_input_dims,
                                       hidden_mlp_dims=cfg.model.hidden_mlp_dims,
                                       hidden_dims=cfg.model.hidden_dims,
                                       output_dims=output_dims,
@@ -511,6 +538,22 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         valid = node_mask.unsqueeze(1) & node_mask.unsqueeze(2)
         return differ & valid
 
+    def generated_mask(self, X, node_mask):
+        """(bs, n, n) bool of the E entries that are generated, or None when the
+        whole graph (X included) is.
+
+        The NLL is restricted to this mask, and X is left out of it, whenever
+        part of the graph is observed. In pair_mode that is the cross block. With
+        fixed_X only X is observed, so every real off-diagonal entry of E counts.
+        """
+        if self.pair_mode:
+            return self.cross_mask(X, node_mask)
+        if self.fixed_X:
+            valid = node_mask.unsqueeze(1) & node_mask.unsqueeze(2)
+            eye = torch.eye(X.size(1), dtype=torch.bool, device=X.device).unsqueeze(0)
+            return valid & ~eye
+        return None
+
     def apply_noise(self, X, E, y, node_mask):
         """ Sample noise and apply it to the data. """
 
@@ -550,6 +593,10 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             cross = self.cross_mask(X, node_mask).unsqueeze(-1)
             E_t = torch.where(cross, E_t, E.type_as(E_t))
             X_t = X.type_as(X_t)
+        elif self.fixed_X:
+            # The centroid flag is observed: noising it would take away the
+            # reference node the hop histogram is measured from.
+            X_t = X.type_as(X_t)
 
         z_t = utils.PlaceHolder(X=X_t, E=E_t, y=y).type_as(X_t).mask(node_mask)
 
@@ -577,8 +624,9 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         # the internal blocks are observed, so a likelihood that scored them
         # would be measuring how well the model copies its own input -- and it
         # would swamp the part that is actually being generated, since the
-        # internal blocks are far larger and far denser than B_ij.
-        pair_mask = self.cross_mask(X, node_mask) if self.pair_mode else None
+        # internal blocks are far larger and far denser than B_ij. With fixed_X
+        # only X is observed, so only X drops out.
+        pair_mask = self.generated_mask(X, node_mask)
 
         # 1.
         N = node_mask.sum(1).long()
@@ -625,7 +673,13 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
     def forward(self, noisy_data, extra_data, node_mask):
         X = torch.cat((noisy_data['X_t'], extra_data.X), dim=2).float()
         E = torch.cat((noisy_data['E_t'], extra_data.E), dim=3).float()
-        y = torch.hstack((noisy_data['y_t'], extra_data.y)).float()
+        y_t = noisy_data['y_t']
+        if self.hop_mlp is not None:
+            # [n, rho_in, k, h1..hk] -> [n, rho_in, k, MLP_h(h)]. Done here, the
+            # one place every training, validation and sampling pass goes through.
+            a, b = self.hop_cols
+            y_t = torch.hstack((y_t[:, :a], self.hop_mlp(y_t[:, a:b].float()), y_t[:, b:]))
+        y = torch.hstack((y_t, extra_data.y)).float()
         return self.model(X, E, y, node_mask)
 
     @torch.no_grad()
@@ -700,13 +754,20 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             y = cond_y.type_as(X)
 
         keep = None
+        fixed_X = None
         if given is not None:
             # X is the side indicator: observed, never generated. Everything of E
             # outside the cross block is L_i / L_j -- also observed. Both are
             # imposed on the initial noise and re-imposed after every step below.
-            X = given['X'].type_as(X)
-            keep = (~self.cross_mask(X, node_mask)).unsqueeze(-1)
+            fixed_X = given['X'].type_as(X)
+            keep = (~self.cross_mask(fixed_X, node_mask)).unsqueeze(-1)
             E = torch.where(keep, given['E'].type_as(E), E)
+        elif self.fixed_X:
+            # Observed node types (the centroid flag), supplied by the dataset.
+            # Imposed on the initial noise and re-imposed after every step below.
+            fixed_X = self.dataset_info.fixed_node_types(node_mask).type_as(X)
+        if fixed_X is not None:
+            X = fixed_X
 
         assert (E == torch.transpose(E, 1, 2)).all()
         assert number_chain_steps < self.T
@@ -726,12 +787,13 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             # Sample z_s
             sampled_s, discrete_sampled_s = self.sample_p_zs_given_zt(s_norm, t_norm, X, E, y, node_mask)
             X, E = sampled_s.X, sampled_s.E
-            if keep is not None:
+            if fixed_X is not None:
                 # Restore the observed part. sampled_s is written back too: the
                 # loop exits on it, not on X/E, so without this the very last
                 # restoration would be dropped from the returned sample.
-                X = given['X'].type_as(X)
-                E = torch.where(keep, given['E'].type_as(E), E)
+                X = fixed_X
+                if keep is not None:
+                    E = torch.where(keep, given['E'].type_as(E), E)
                 sampled_s.X, sampled_s.E = X, E
             if cond_y is None:
                 y = sampled_s.y     # unconditional: width-0, as before
