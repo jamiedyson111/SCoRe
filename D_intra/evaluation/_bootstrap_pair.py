@@ -1,6 +1,7 @@
 """Paired bootstrap between two sampled runs scored on the SAME supernodes.
 
-    python _bootstrap_pair.py A A_nohop lux2minn_k7 lux2minn_k7_nohop
+    python _bootstrap_pair.py A A_nohop lux2olde_k7 lux2olde_k7_nohop
+    python _bootstrap_pair.py oldenburg/B oldenburg/B_v3 lux2olde_k7 lux2olde_k7
 
 Resamples the supernode index and recomputes both sides from the same draw, so
 the between-cluster variance cancels and what is left is the difference between
@@ -23,7 +24,7 @@ L, R, TAG_L, TAG_R = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
 def load(name, tag):
     gen = parse_generated(f"../results/samples/{name}.txt")
-    cfg = name.split("_")[0]
+    cfg = name.split("/")[-1].split("_")[0]
     blob = torch.load(f"../data/cluster_lux/raw/pairs_{cfg}_{tag}.pt")
     test = {int(r["sn"]): r for r in blob["splits"][2]}
     pairs = [(g, test[g["supernode"]]) for g in gen if g.get("supernode") in test]

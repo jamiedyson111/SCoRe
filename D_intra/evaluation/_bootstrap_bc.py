@@ -1,4 +1,4 @@
-"""Paired bootstrap of the B vs C differences on the 48 shared Minnesota clusters.
+"""Paired bootstrap of the B vs C differences on the 160 shared Oldenburg clusters.
 
 B and C are scored on the SAME supernodes in the same order, so resample the
 supernode INDEX and recompute both sides from the same draw. That keeps the
@@ -16,11 +16,13 @@ from evaluate_clusters import (agg, dense_adj, describe, dist_to_real,  # noqa: 
 
 RNG = np.random.default_rng(0)
 B_BOOT = 4000
+TAG = "lux2olde_k7"
+SAMPLES = "../results/samples/oldenburg"
 
 
 def load(cfg):
-    gen = parse_generated(f"../results/samples/{cfg}.txt")
-    blob = torch.load(f"../data/cluster_lux/raw/pairs_{cfg}_lux2minn_k7.pt")
+    gen = parse_generated(f"{SAMPLES}/{cfg}.txt")
+    blob = torch.load(f"../data/cluster_lux/raw/pairs_{cfg}_{TAG}.pt")
     test = {int(r["sn"]): r for r in blob["splits"][2]}
     pairs = [(g, test[g["supernode"]]) for g in gen if g.get("supernode") in test]
     pairs.sort(key=lambda t: t[0]["supernode"])          # identical order for B and C
@@ -88,10 +90,10 @@ for label, which in [("degree dist.", 0), ("spectrum", 1)]:
           f"{f'[{lo:+.4f}, {hi:+.4f}]':>22}{tag}")
 
 print("\nCI straddling 0 => the difference is not distinguishable from")
-print("sampling noise on 48 clusters, whichever direction it points.")
+print(f"sampling noise on {len(pb)} clusters, whichever direction it points.")
 
 # how concentrated is C's private training slice?
-blob = torch.load("../data/cluster_lux/raw/pairs_C_lux2minn_k7.pt")
+blob = torch.load(f"../data/cluster_lux/raw/pairs_C_{TAG}.pt")
 tr = blob["splits"][0]
 sns = [int(r["sn"]) for r in tr]
 uniq, counts = np.unique(sns, return_counts=True)

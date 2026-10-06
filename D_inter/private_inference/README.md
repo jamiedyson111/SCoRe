@@ -23,8 +23,8 @@ running one on its own; `--dry-run` prints them without submitting anything.
 ```bash
 sbatch private_inference/run_private_blocks.sh \
     /abs/path/checkpoints/pair_lux/epoch=179.ckpt \
-    out/release_minnesota_k7.pt \
-    out/clusters_minnesota_k7.pt
+    out/release_oldenburg_k7.pt \
+    out/clusters_oldenburg_k7.pt
 ```
 
 For each connected pair the model is handed the two internal blocks and the side
@@ -49,7 +49,7 @@ stage 1's output:
 
 ```bash
 sbatch private_inference/run_private_blocks.sh CKPT RELEASE \
-    /rds/.../D_intra/private_inference/out/clusters_minnesota_k7_true.pt
+    /rds/.../D_intra/private_inference/out/clusters_oldenburg_k7_true.pt
 ```
 
 That isolates stage 2 from stage 1 entirely. With real context the run should
@@ -102,10 +102,10 @@ not a model limit. Use `+max_combined=N` to skip them.
 ## Stage 3 — assembly and scoring
 
 ```bash
-python assemble_syn.py --release  out/release_minnesota_k7.pt \
-                       --clusters out/clusters_minnesota_k7.pt \
-                       --blocks   out/blocks_minnesota_k7.pt \
-                       --out-dir  out/syn_minnesota_k7
+python assemble_syn.py --release  out/release_oldenburg_k7.pt \
+                       --clusters out/clusters_oldenburg_k7.pt \
+                       --blocks   out/blocks_oldenburg_k7.pt \
+                       --out-dir  out/syn_oldenburg_k7
 ```
 
 Places each `L_i` on the diagonal and each `B_ij` plus its transpose off-diagonal,
@@ -129,8 +129,9 @@ components, then GCC and APL, then three discrepancies against the real graph.
 | degW | `W_1` between the two degree distributions |
 | REAPL | `\|APL(G) - APL(G^)\| / APL(G)` |
 
-APL is **exact** — every reachable pair — for graphs up to 5000 nodes, which
-covers Minnesota at 2642. Luxembourg's 114599 nodes would need a 1.3e10-entry
+APL is **exact** — every reachable pair — for graphs up to 6500 nodes, which
+covers Oldenburg at 6105 (a ~300 MB distance matrix; the limit was 5000 until
+Oldenburg replaced Minnesota, at 2642, as the private graph). Luxembourg's 114599 nodes would need a 1.3e10-entry
 distance matrix, so there it is estimated from `--apl-sources` BFS sweeps (100 by
 default) drawn from the same seed in every column, and the report says which was
 used. Sampling costs about 2.5%: Minnesota's APL is 35.35 exactly and 36.28 from
@@ -170,19 +171,19 @@ correction and a perfect result scores exactly 0.
 ### Assembly self-test
 
 ```bash
-python assemble_syn.py --release out/release_minnesota_k7.pt --real \
-                       --out-dir out/selftest_minnesota
+python assemble_syn.py --release out/release_oldenburg_k7.pt --real \
+                       --out-dir out/selftest_oldenburg
 ```
 
 Assembles from the private graph's own blocks. It must reproduce `G^priv` edge for
-edge; the script exits non-zero if it does not. Both graphs currently pass:
+edge; the script exits non-zero if it does not. All three graphs pass:
 
-| | Minnesota k=7 | Luxembourg k=7 |
-|---|---|---|
-| nodes | 2642 | 114599 |
-| edges reproduced | 3303 / 3303 | 119666 / 119666 |
-| degree `W_1` | 0.0000 | 0.0000 |
-| `\|B_ij\|` = `w_ij` | 217/217 | 10902/10902 |
+| | Oldenburg k=7 | Minnesota k=7 | Luxembourg k=7 |
+|---|---|---|---|
+| nodes | 6105 | 2642 | 114599 |
+| edges reproduced | 7029 / 7029 | 3303 / 3303 | 119666 / 119666 |
+| degree `W_1` | 0.0000 | 0.0000 | 0.0000 |
+| `\|B_ij\|` = `w_ij` | 552/552 | 217/217 | 10902/10902 |
 
 Run this after any change to the assembly code. If it fails, the bug is in
 `assemble_syn.py` and no amount of looking at model output will show that.

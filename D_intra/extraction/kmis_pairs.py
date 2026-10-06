@@ -3,6 +3,8 @@ builders; contains no CLI so it can be imported safely.
 
 Run in the `kmis` conda env (needs torch_sparse).
 """
+import os
+
 import numpy as np
 import scipy.sparse as sp
 import torch
@@ -13,13 +15,39 @@ from kmis import orderings, reduce, sample
 GRAPHS = {
     "luxembourg": ("luxembourg_osm", "DIMACS10"),
     "minnesota":  ("minnesota", "Gleich"),
+    "oldenburg":  ("oldenburg", "Brinkhoff"),
     "facebook":   ("ego-Facebook", "SNAP"),
 }
+
+# Graphs that are not on SuiteSparse, read from a local edge list instead. The
+# Oldenburg road network is Brinkhoff's, in the OL.cedge export from
+# https://www.cs.utah.edu/~lifeifei/SpatialDataset.htm: one row per edge,
+# "edge_id u v length", nodes 0..6104. The file has 7035 rows but 6 are
+# duplicates, so the simple graph has 7029 edges.
+EDGE_LISTS = {
+    "oldenburg": "Brinkhoff/oldenburg/raw/OL.cedge",
+}
+
+
+def _load_edge_list(path):
+    """Unweighted symmetric SparseTensor, the same shape datasets.load_graph returns."""
+    from torch_sparse import SparseTensor
+    uv = np.loadtxt(path, usecols=(1, 2), dtype=np.int64)
+    uv = uv[uv[:, 0] != uv[:, 1]]
+    n = int(uv.max()) + 1
+    row = torch.from_numpy(np.concatenate([uv[:, 0], uv[:, 1]]))
+    col = torch.from_numpy(np.concatenate([uv[:, 1], uv[:, 0]]))
+    adj = SparseTensor(row=row, col=col, value=torch.ones(row.numel()),
+                       sparse_sizes=(n, n)).coalesce(reduce="max")
+    return adj
 
 
 def load_graph(key, root="datasets/"):
     name, group = GRAPHS[key]
-    adj = datasets.load_graph(name, group, root)
+    if key in EDGE_LISTS:
+        adj = _load_edge_list(os.path.join(root, EDGE_LISTS[key]))
+    else:
+        adj = datasets.load_graph(name, group, root)
     n = adj.size(0)
     row, col, _ = adj.coo()
     A = sp.coo_matrix((np.ones(row.numel()), (row.numpy(), col.numpy())), shape=(n, n)).tocsr()

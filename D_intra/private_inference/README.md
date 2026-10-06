@@ -27,7 +27,7 @@ file-mediated rather than one script.
 ## Stage 0 — the release
 
 ```bash
-python make_private_release.py --graph minnesota --k 7
+python make_private_release.py --graph oldenburg --k 7
 ```
 
 Coarsens with the same three k-MIS calls as `extraction/kmis_pairs.py`, so the
@@ -78,7 +78,7 @@ rather than three stages later.
 ```bash
 sbatch private_inference/run_private_clusters.sh \
     /abs/path/checkpoints/cluster_lux/epoch=NNN.ckpt \
-    /abs/path/release_minnesota_k7.pt \
+    /abs/path/release_oldenburg_k7.pt \
     cluster_lux
 ```
 
@@ -108,8 +108,11 @@ D_intra was retrained on 2026-08-12, so the caveat that stage 1 output was
 provisional against a pre-k-MIS-fix checkpoint no longer applies — **provided you
 pass a checkpoint from one of the completed A/B/C runs and name its dataset.**
 
-Use **configuration B** (`cluster_B_lux2minn_k7`): trained on Luxembourg, applied
-to Minnesota, which is the public → private direction this stage demonstrates.
+Use **configuration B** (`cluster_B_lux2olde_k7`): trained on Luxembourg, applied
+to Oldenburg, which is the public → private direction this stage demonstrates.
+(Oldenburg replaced Minnesota as the private graph on 2026-10-05. B's training
+data is unchanged by that, so the existing `transfer_B` checkpoint is the one to
+use.)
 That is now the script's default for the DATASET argument. It used to be
 `cluster_lux`, which is wrong twice over — legacy 3-dim condition, and a pairs
 file predating the coarsening fix.
@@ -124,7 +127,7 @@ Then, with `CKPT` set to an `epoch=N.ckpt` under `<that dir>/checkpoints/transfe
 
 ```bash
 sbatch private_inference/run_private_clusters.sh \
-    "$CKPT" out/release_minnesota_k7.pt cluster_B_lux2minn_k7
+    "$CKPT" out/release_oldenburg_k7.pt cluster_B_lux2olde_k7
 ```
 
 > **Take the newest run directory deliberately.** Several configurations have more

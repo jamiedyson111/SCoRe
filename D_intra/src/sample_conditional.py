@@ -10,11 +10,22 @@ step. Training is unchanged -- run main.py for that; this is generation only.
 
 Writes conditional_samples.txt in the hydra run directory, in the same format
 main.py uses for generated_samples1.txt, plus the condition each graph was given.
+
+REPEATS. +repeats=N samples the whole test split N times from the one loaded
+checkpoint, with seeds +seed .. +seed+N-1 (default 0..N-1), and writes
+conditional_samples_s<seed>.txt for each. evaluation/repeat_summary.py then
+reports every metric as median and std across the N runs. This measures
+SAMPLING noise only: all runs share one set of trained weights.
+
+Sampling is seeded either way (seed 0 by default), so a run is reproducible on
+the same hardware. Before 2026-10-06 it was unseeded.
 """
+import random
 import graph_tool as gt          # must precede torch; see coarse/cluster dataset notes
 import os
 import warnings
 
+import numpy as np
 import torch
 import hydra
 from omegaconf import DictConfig
@@ -77,7 +88,27 @@ def main(cfg: DictConfig):
     print(f"generating for {len(test)} test supernodes")
     print(f"condition ({len(blob['cond_names'])} dims): {blob['cond_names']}")
 
-    out_path = 'conditional_samples.txt'
+    repeats = int(cfg.get('repeats', 1))
+    seed0 = int(cfg.get('seed', 0))
+    for rep in range(repeats):
+        seed = seed0 + rep
+        out_path = ('conditional_samples.txt' if repeats == 1
+                    else f'conditional_samples_s{seed}.txt')
+        if repeats > 1:
+            print(f"\nrepeat {rep + 1}/{repeats}  (seed {seed})")
+        sample_split(model, test, device, seed, out_path)
+
+
+def seed_all(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+def sample_split(model, test, device, seed, out_path):
+    """One conditional sample per test supernode, written to out_path."""
+    seed_all(seed)
     written = 0
     with open(out_path, 'w') as f:
         for start in range(0, len(test), BATCH):

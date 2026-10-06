@@ -107,7 +107,7 @@ the jobs keep running and a later run collects them.
 `--ckpt-intra` / `--ckpt-inter` override the checkpoint discovery.
 
 ```bash
-./make_graph.sh --graph luxembourg      # minnesota is the default
+./make_graph.sh --graph luxembourg      # oldenburg is the default
 ```
 
 Output lands in `D_inter/private_inference/out/{syn,selftest}_<graph>_k<k>/`:

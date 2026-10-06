@@ -19,8 +19,8 @@
 # checkpoint was trained under. It must be the dataset the checkpoint was
 # actually trained on, or the conditions are scaled wrongly.
 #
-# The default is cluster_B_lux2minn_k7 -- configuration B, trained on Luxembourg
-# and applied to Minnesota, which is the public -> private direction this stage
+# The default is cluster_B_lux2olde_k7 -- configuration B, trained on Luxembourg
+# and applied to Oldenburg, which is the public -> private direction this stage
 # exists to demonstrate. It used to be cluster_lux; that is now WRONG for any
 # current checkpoint. cluster_lux is the legacy 3-dim condition [n, rho_in, k],
 # while A/B/C carry the 10-dim [n, rho_in, k, h1..h7] added on 2026-08-06, and
@@ -32,13 +32,13 @@
 # that saw private data during training -- that is a weaker privacy claim.
 #
 # Runtime scales with the supernode count times the 500 reverse steps.
-# Minnesota k=7 has 95 supernodes (3 batches); Luxembourg has 8815 (~276).
+# Oldenburg k=7 has 317 supernodes (~10 batches); Luxembourg has 8815 (~276).
 
 set -euo pipefail
 
 CKPT="${1:-}"
 RELEASE="${2:-}"
-DATASET="${3:-cluster_B_lux2minn_k7}"
+DATASET="${3:-cluster_B_lux2olde_k7}"
 OUT="${4:-}"
 
 if [ -z "$CKPT" ] || [ -z "$RELEASE" ]; then

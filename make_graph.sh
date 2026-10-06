@@ -29,7 +29,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-GRAPH=minnesota
+GRAPH=oldenburg
 K=                                     # blank -> per-graph default, see below
 REAL=0
 FORCE=0
@@ -65,24 +65,21 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# Minnesota is the PRIVATE graph and is coarsened at k=4: that puts its
-# supernodes on the same size distribution the models trained on (median 11,
-# matching Luxembourg). Luxembourg, the public graph, stays at k=7. Passing --k
-# overrides this.
-if [ -z "$K" ]; then
-    case $GRAPH in
-        minnesota) K=4 ;;
-        *)         K=7 ;;
-    esac
-fi
+# Oldenburg is the PRIVATE graph and is coarsened at k=7, the same locality as
+# Luxembourg, the public one: its supernodes come out at median 15 (Luxembourg
+# 11) with a hop histogram close to Luxembourg's, so no per-graph k is needed.
+# Passing --k overrides this.
+[ -z "$K" ] && K=7
 # The D_intra dataset carries the standardisation the checkpoint was trained
-# under, and a private graph at k=4 needs the k7k4 datasets -- not because the
-# weights differ (B is the same model; only its TEST split changes) but because
-# the condition must be standardised with the statistics it was trained on.
+# under. Any other private graph has to name its dataset explicitly -- e.g. the
+# old Minnesota run was --graph minnesota --k 4 --dataset cluster_B_lux2minn_k7k4.
 if [ -z "$DATASET" ]; then
-    if [ "$K" = 7 ]; then DATASET=cluster_B_lux2minn_k7
-    else                  DATASET=cluster_B_lux2minn_k7k4
-    fi
+    case "$GRAPH:$K" in
+        oldenburg:7) DATASET=cluster_B_lux2olde_k7 ;;
+        *) echo "ERROR: no default D_intra dataset for --graph $GRAPH --k $K;" >&2
+           echo "       pass one with --dataset." >&2
+           exit 2 ;;
+    esac
 fi
 
 PI_INTRA=$ROOT/D_intra/private_inference
@@ -221,15 +218,18 @@ else
     }
     WANT_INTRA=$(pairs_file_of "$ROOT/D_intra/configs/dataset/${DATASET}.yaml")
     WANT_INTER=$(pairs_file_of "$ROOT/D_inter/configs/dataset/${DATASET_INTER}.yaml")
-    # B IS NOT RETRAINED AT k=4, so requiring a run trained on the k7k4 file
-    # would reject the only correct checkpoint. B trains and validates on
-    # Luxembourg alone; recoarsening the private graph changes its TEST split
-    # and nothing else. Verified on 2026-08-18 against the two files: identical
-    # cond_names, identical cond_mean and cond_std, byte-identical train
-    # records, 6611/1322 either way -- only the test split differs, 48 vs 114.
-    # So a k7-trained run is a valid source for the k7k4 dataset, and only for
-    # that reason is the match widened here.
-    ALT_INTRA=${WANT_INTRA/k7k4/k7}
+    # B IS NOT RETRAINED FOR A NEW PRIVATE GRAPH, so requiring a run trained on
+    # the lux2olde file would reject the only correct checkpoint. B trains and
+    # validates on Luxembourg alone; swapping or recoarsening the private graph
+    # changes its TEST split and nothing else. Verified against the files:
+    #   lux2minn_k7 vs lux2minn_k7k4 (2026-08-18) and
+    #   lux2minn_k7 vs lux2olde_k7   (2026-10-05):
+    # identical cond_names, cond_mean and cond_std, identical train and val
+    # records, 6611/1322 either way -- only the test split differs. So a run
+    # trained on pairs_B_lux2minn_k7.pt is a valid source for either dataset,
+    # and only for that reason is the match widened here.
+    ALT_INTRA=${WANT_INTRA/lux2olde/lux2minn}
+    ALT_INTRA=${ALT_INTRA/k7k4/k7}
     if [ "$ALT_INTRA" != "$WANT_INTRA" ]; then
         PAT_INTRA="($WANT_INTRA|$ALT_INTRA)"
     else

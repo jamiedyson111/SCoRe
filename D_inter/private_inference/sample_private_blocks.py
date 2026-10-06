@@ -6,9 +6,9 @@ generated internal blocks, and produces one B_ij per connected supernode pair:
     python3 sample_private_blocks.py \
         dataset=pair_lux +experiment=pair_lux \
         general.test_only="'/abs/path/checkpoints/pair_lux/epoch=179.ckpt'" \
-        +release=/abs/path/release_minnesota_k7.pt \
-        +clusters=/abs/path/clusters_minnesota_k7.pt \
-        +out=/abs/path/blocks_minnesota_k7.pt
+        +release=/abs/path/release_oldenburg_k7.pt \
+        +clusters=/abs/path/clusters_oldenburg_k7.pt \
+        +out=/abs/path/blocks_oldenburg_k7.pt
 
 Note the LITERAL single quotes inside the double quotes on test_only -- Hydra's
 override grammar cannot parse the second '=' in "epoch=179.ckpt".
@@ -16,7 +16,7 @@ override grammar cannot parse the second '=' in "epoch=179.ckpt".
 To validate this stage independently of D_intra, pass the true internal blocks
 that stage 0 writes alongside the release:
 
-    +clusters=/abs/path/clusters_minnesota_k7_true.pt
+    +clusters=/abs/path/clusters_oldenburg_k7_true.pt
 
 With real context the run should reproduce the public-run numbers -- around 96%
 of blocks with |B_ij| exactly w_ij -- so a bad result points here rather than at
@@ -215,7 +215,7 @@ def main(cfg: DictConfig):
                       'w': int(p['w']), 'r': r})
 
     # Validation-only: score fidelity on a random subsample instead of every pair.
-    # Luxembourg has 10902 connected pairs against Minnesota's 217, which at ~3 min
+    # Luxembourg has 10902 connected pairs against Oldenburg's 552, which at ~3 min
     # a batch is far past any sensible wall clock, and a few hundred pairs already
     # pins the fidelity rate to well under a percentage point. Never use this for a
     # run you intend to assemble: the omitted pairs become empty blocks in L^syn.

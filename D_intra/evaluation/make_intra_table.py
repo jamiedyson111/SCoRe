@@ -3,10 +3,10 @@
 Emits one table with a column per configuration and a Real column, in the layout
 used for the D_inter cross-block table. Run LOCALLY in the `kmis` env:
 
-    python make_intra_table.py --tag lux2minn_k7k4 \
-        --b ../results/samples/B_k4.txt        --c ../results/samples/C_k4.txt \
-        --b-nohop ../results/samples/B_k4_nohop.txt \
-        --c-nohop ../results/samples/C_k4_nohop.txt --latex
+    python make_intra_table.py --tag lux2olde_k7 \
+        --b ../results/samples/oldenburg/B.txt        --c ../results/samples/oldenburg/C.txt \
+        --b-nohop ../results/samples/oldenburg/B_nohop.txt \
+        --c-nohop ../results/samples/oldenburg/C_nohop.txt --latex
 
 Every configuration passed must be scored on the SAME held-out supernodes, which
 is asserted rather than assumed: B and C share a test split by construction, and
@@ -84,7 +84,7 @@ def load_column(gen_path, pairs_path):
 
 
 def describe_split(blob):
-    """'Minnesota $k{=}4$', trained on 'Luxembourg $k{=}7$' -- read off the dataset.
+    """'Oldenburg $k{=}7$', trained on 'Luxembourg $k{=}7$' -- read off the dataset.
 
     Taken from the blob rather than the filename so the caption cannot drift from
     what was actually built. k_public/k_private are absent from datasets written
@@ -197,7 +197,7 @@ def main():
     ap = argparse.ArgumentParser()
     for flag, _, _ in COLUMNS:
         ap.add_argument(f"--{flag.replace('_', '-')}")
-    ap.add_argument("--tag", default="lux2minn_k7k4",
+    ap.add_argument("--tag", default="lux2olde_k7",
                     help="dataset tag, i.e. the part after pairs_X_ in the filenames. "
                          "The _nohop columns get _nohop appended automatically.")
     ap.add_argument("--pairs-dir", default="../data/cluster_lux/raw")

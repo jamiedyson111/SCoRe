@@ -1,0 +1,6 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# A: no-hop ablation -- condition truncated to [n, rho_in, k].
+# Same splits and seed as pairs_A_lux2olde_k7.pt; only h1..h7 are dropped.
+pairs_file: 'pairs_A_lux2olde_k7_nohop.pt'

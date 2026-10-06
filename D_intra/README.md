@@ -32,7 +32,8 @@ extraction/   graph -> (G_i, c_i) pairs.  Runs locally in the `kmis` env.
   kmis_pairs.py             k-MIS coarsening + induced-subgraph extraction
   make_transfer_datasets.py builds configurations A / B / C
   kmis/  benchmark/         coarsening code and graph loaders
-  datasets/                 Luxembourg (DIMACS10) + Minnesota (Gleich)
+  datasets/                 Luxembourg (DIMACS10), Oldenburg (Brinkhoff edge list),
+                            Minnesota (Gleich, the old private graph)
 
 src/          the model. Everything except the two files below is a synced copy
               of ../DiGress_upload/src and will be OVERWRITTEN by ../sync.sh
@@ -40,10 +41,9 @@ src/          the model. Everything except the two files below is a synced copy
   sample_conditional.py         drives sample_batch from a checkpoint
 
 configs/      the cluster_* files are D_intra's; the rest are synced copies
-  dataset/cluster_{A,B,C}_lux2minn_k7.yaml   the live configs, 10-dim condition
-  dataset/cluster_{B,C}_lux2minn_k7k4.yaml   Minnesota at k=4, Luxembourg at k=7
-                                             (no A: A is Luxembourg-only and its
-                                             records are identical to the k7 A)
+  dataset/cluster_{A,B,C}_lux2olde_k7.yaml   the live configs, 10-dim condition
+  dataset/cluster_*_lux2minn_*.yaml          Minnesota, the old private graph;
+                                             kept for the results already reported
   dataset/cluster_lux.yaml, lux2minn.yaml    LEGACY, 3-dim condition -- see below
   experiment/cluster_lux.yaml                shared by all of them
 
@@ -60,65 +60,64 @@ scripts/                SLURM jobs
 | | Train | Test | Purpose |
 |---|---|---|---|
 | A | Luxembourg | Luxembourg | in-distribution reference |
-| B | Luxembourg | Minnesota | zero-shot public -> private |
-| C | Luxembourg + Minnesota | Minnesota (same as B) | does a little private data help |
+| B | Luxembourg | Oldenburg | zero-shot public -> private |
+| C | Luxembourg + Oldenburg | Oldenburg (same as B) | does a little private data help |
 
 Both graphs are coarsened at **k = 7** by default.
 
 B and C are scored on identical supernodes in identical order, so the comparison
 is paired.
 
-### The Minnesota k = 4 variant
+### The private graph: Oldenburg
 
-`--k-private 4` recoarsens the private graph alone, leaving Luxembourg at k = 7.
-The point is that **k = 7 is the wrong locality for Minnesota**: Minnesota is the
-denser graph (mean degree 2.50 vs 2.09), so the same k gives supernodes more than
-twice the size the model trained on.
+The private graph was Minnesota until 2026-10-05 and is now **Oldenburg**
+(Brinkhoff's road network, 6,105 nodes and 7,029 edges, mean degree 2.30), a
+graph over twice Minnesota's size. It is not on SuiteSparse, so `kmis_pairs.py`
+reads it from the edge list in
+`extraction/datasets/Brinkhoff/oldenburg/raw/OL.cedge`.
 
-| Minnesota at | supernodes (n≥3) | median size | shared B/C test split |
-|---|---|---|---|
-| k = 7 | 94 | 28 | 47 |
-| k = 4 | 226 | **11** | **114** |
+Both graphs are coarsened at **k = 7**, and unlike Minnesota no per-graph k is
+needed:
 
-Luxembourg at k = 7 has median size 11. So k = 4 puts the private clusters on the
-same size distribution the model was trained on, removing the size-shift confound
-listed under "Known issues", and it more than doubles the test split — the k = 7
-B/C comparison was underpowered at 48 supernodes (see `compare_ablation.py`).
+| private graph | k | supernodes (n≥3) | median size | mean `h1..h7` | shared B/C test split |
+|---|---|---|---|---|---|
+| Luxembourg (public) | 7 | 8,815 | 11 | .23 .22 .23 .17 .09 .04 .01 | — |
+| **Oldenburg** | **7** | **317** | **15** | **.20 .20 .23 .20 .11 .04 .01** | **160** |
+| Minnesota (old) | 4 | 226 | 11 | .32 .40 .22 .06 0 0 0 | 114 |
+| Minnesota (old) | 7 | 94 | 28 | — | 47 |
 
-Two things make this work without touching the architecture:
+At k = 7 Oldenburg's hop histogram is close to Luxembourg's and the `k` column
+is in-distribution for B, so the two caveats the Minnesota k = 4 variant carried
+(`h2` ~3.2σ off the training mean, and B seeing `k = −3` where training was
+always 0) do not arise. The size shift remains, but it is 15 vs 11 rather than
+28 vs 11.
 
-- **The hop histogram keeps its 7 columns.** A cluster built at k = 4 has
-  provably empty rings 5–7 (nearest-centre assignment puts every member within 4
-  hops of its centre), so `sum(h)` is still exactly 1 and the input width stays
-  22. Verified: `max(h5..h7) = 0.000000` across all 226 clusters. This is why the
-  existing checkpoints load unchanged.
-- **B needs no retraining.** B trains and validates on Luxembourg only, so the
-  private graph's k changes B's *test* split and nothing else. The existing
-  `transfer_B` checkpoint is the k = 4 B model. Only C is a new model.
-
-What does change, and must be reported:
-
-- `h`'s distribution shifts hard. Minnesota k = 4 has mean
-  `h = [0.32, 0.40, 0.22, 0.06, 0, 0, 0]` against Luxembourg's
-  `[0.23, 0.22, 0.23, 0.17, 0.09, 0.04, 0.01]`; standardised on Luxembourg
-  statistics, `h2` sits ~3.2σ above the training mean.
-- `k` is reported truthfully per graph (7 for Luxembourg, 4 for Minnesota). In C
-  that column now has variance and is standardised normally. In **B** it does
-  not: `standardise()` leaves a zero-variance feature on its raw scale, so B
-  receives `(4 − 7)/1 = −3` where training was always 0. That is the honest
-  encoding of "the granularity changed", but B's numbers should not be read as
-  if the condition were in-distribution.
+**Only C needs training.** A never sees the private graph, and
+`pairs_A_lux2olde_k7.pt` is byte-identical to `pairs_A_lux2minn_k7.pt`. B trains
+and validates on Luxembourg alone: its train and val records and its
+standardisation statistics are identical too, and only its test split changed.
+So the existing `transfer_A*` / `transfer_B*` checkpoints, and the A samples, are
+already the Oldenburg ones. C's training set contains Oldenburg clusters (126
+distinct, oversampled x17 to 24% of 8,753; validates on 31 graphs), so it is a
+new model, run under the name `transfer_C_olde*` so that it cannot be confused
+with the Minnesota-trained `transfer_C*`.
 
 ```bash
-cd extraction && python make_transfer_datasets.py --k-public 7 --k-private 4
-cd extraction && python make_transfer_datasets.py --k-public 7 --k-private 4 --no-hops
+cd extraction && python make_transfer_datasets.py
+cd extraction && python make_transfer_datasets.py --no-hops
 ```
 
 Then, on BlueBEAR — samples B from the existing checkpoints, trains C:
 
 ```bash
-bash scripts/run_k4_transfer.sh
+bash scripts/run_olde_transfer.sh            # B, B_nohop sampled; C, C_nohop trained
+bash scripts/run_olde_transfer.sh _v3        # B_v3 sampled; C_v3 trained
 ```
+
+The Minnesota datasets, configs (`*_lux2minn_*`) and results are kept, and its
+k = 4 run is still reproducible with
+`make_transfer_datasets.py --private minnesota --k-private 4`. The scripts no
+longer wire it up; see git history before 2026-10-05 for the k = 4 entries.
 
 ## Version 3: centroid node type and hop embedding
 
@@ -142,7 +141,7 @@ Same datasets, splits and settings as A/B/C, so the results compare directly:
 
 ```bash
 bash scripts/run_all_transfer.sh A_v3 B_v3 C_v3
-sbatch scripts/run_sample_conditional.sh B_k4_v3    # B_v3 on Minnesota at k=4
+bash scripts/run_olde_transfer.sh _v3    # cheaper: samples B_v3, trains only C_v3
 ```
 
 `_centroid` and `_hopmlp` in place of `_v3` run each change on its own. Expected
@@ -209,22 +208,43 @@ If a chained job fails, the ones behind it never run — they sit in
 ./make_tables.sh
 ```
 
-That runs all five tables over `results/samples/` and writes each to
-`results/tables/<name>.txt`, with its LaTeX block split out as
-`results/tables/<name>.tex`:
+That runs all three tables over `results/samples/oldenburg/` and writes each to
+`results/tables/oldenburg/<name>.txt`, with its LaTeX block split out as
+`<name>.tex`. The Minnesota samples and tables one level up are left as they
+were: supernode ids are reused across graphs, so a Minnesota samples file would
+match Oldenburg test records by id and be scored against the wrong clusters.
 
 | name | what |
 |---|---|
-| `intra_k7` | structural stats, Minnesota k=7 split, B/C x hops/no-hops |
-| `intra_k4` | structural stats, Minnesota k=4 split, B/C x hops/no-hops |
+| `intra_k7` | structural stats, Oldenburg k=7 split, B/C x hops/no-hops |
 | `transfer_k7` | realism / transfer / condition tables, A B C at k=7 |
-| `transfer_k4` | the same, B and C at k=4 (A is Luxembourg-only) |
 | `ablation_A` | paired hop-histogram ablation on configuration A |
 
 A table whose samples are missing is skipped with a note, so it is safe to run on
 a partial set of results. `./make_tables.sh --list` prints the names;
-`./make_tables.sh intra_k4 ablation_A` runs just those. `../make_tables.sh` does
+`./make_tables.sh intra_k7 ablation_A` runs just those. `../make_tables.sh` does
 this folder and D_inter together.
+
+**Repeated sampling (median / std).** Each table above is one random draw.
+To report sampling noise, re-sample every Oldenburg configuration 5 times from
+its existing checkpoint (no training; ~20 min a job) on BlueBEAR:
+
+```bash
+bash scripts/run_olde_repeats.sh                  # B_nohop, B_v3, C_nohop, C_v3 x seeds 0..4
+bash scripts/run_olde_repeats.sh 5 A_nohop A_v3   # A, on Luxembourg (own sheet)
+```
+
+Copy each job's `conditional_samples_s<seed>.txt` to
+`results/samples/oldenburg/repeats/<CFG>_s<seed>.txt`, then:
+
+```bash
+cd evaluation && conda activate kmis && python repeat_summary.py
+```
+
+That writes `results/tables/oldenburg/repeats_summary.tsv` (one row per metric,
+a median and a std column per configuration) and `repeats_per_seed.tsv` (every
+run's value). Both are tab-separated, so they paste into Excel as cells. The std
+is across runs of ONE checkpoint, so it is sampling noise, not training noise.
 
 Tables are a LOCAL step -- the samples come off BlueBEAR, the tables are built
 here. If you do want them on the cluster, the script works there unchanged:
@@ -292,8 +312,7 @@ Size of the input features 7 2 22
 
 | dataset | expected | condition |
 |---|---|---|
-| `cluster_{A,B,C}_lux2minn_k7` | **`7 2 22`** | 10 = `n, rho_in, k, h1..h7` |
-| `cluster_{B,C}_lux2minn_k7k4` | **`7 2 22`** | unchanged — `h` stays 7 wide at k=4 |
+| `cluster_{A,B,C}_lux2olde_k7` | **`7 2 22`** | 10 = `n, rho_in, k, h1..h7` |
 | `*_nohop` | `7 2 15` | 3 = `n, rho_in, k` |
 | `cluster_lux` (legacy) | `7 2 15` | 3 = `n, rho_in, k` |
 
@@ -337,11 +356,11 @@ selection is unreliable and its numbers are not reproducible by retraining.
 - Coarsening Luxembourg at k=7 gives 8,815 supernodes; the source paper's
   Table 2 reports 10,929. Eight orderings tried, none reproduces it. **Not**
   explained by the assignment bug — centre selection was always correct.
-- C oversamples 31 Minnesota clusters x62 and validates on 7 graphs. At k = 4
-  this improves to 90 distinct clusters x24 and 22 validation graphs.
-- Cluster size shift is confounded with graph shift (Minnesota median 28 nodes
-  vs Luxembourg 11) — intrinsic to fixed-k transfer, and **the reason for the
-  k = 4 variant above**, which brings the private median to 11.
+- C oversamples 126 Oldenburg clusters x17 and validates on 31 graphs (Minnesota
+  was 31 clusters x62 and 7 graphs at k = 7, 90 x24 and 22 at k = 4).
+- Cluster size shift is confounded with graph shift — intrinsic to fixed-k
+  transfer. Oldenburg's median is 15 against Luxembourg's 11; Minnesota's was 28
+  at k = 7, which is why it needed the k = 4 variant.
 - `rho_in ~ 2/n` on Luxembourg because clusters are near-trees, so a partial
   correlation controlling for `n` linearly is a false positive. Control on
   `2/n`. Not yet re-measured after the k-MIS fix.

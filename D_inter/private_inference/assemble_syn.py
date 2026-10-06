@@ -3,10 +3,10 @@
 Runs LOCALLY in the `kmis` env (numpy / scipy / torch; pandas and matplotlib
 optional). No GPU, no model.
 
-    python assemble_syn.py --release  out/release_minnesota_k7.pt \
-                           --clusters out/clusters_minnesota_k7.pt \
-                           --blocks   out/blocks_minnesota_k7.pt \
-                           --out-dir  out/syn_minnesota_k7
+    python assemble_syn.py --release  out/release_oldenburg_k7.pt \
+                           --clusters out/clusters_oldenburg_k7.pt \
+                           --blocks   out/blocks_oldenburg_k7.pt \
+                           --out-dir  out/syn_oldenburg_k7
 
 Assembly is the block matrix of the brief: each generated L_i on the diagonal,
 each generated B_ij and its transpose off-diagonal, zero for any pair not
@@ -236,14 +236,15 @@ def triangles(A):
     return per_node, per_node.sum() / 3.0
 
 
-def apl(A, rng, n_sources, exact_max_nodes=5000):
+def apl(A, rng, n_sources, exact_max_nodes=6500):
     """Average shortest-path length over reachable pairs, and that fraction.
 
         APL(G) = (1/|R|) sum_{(u,v) in R} d_G(u,v),   R = pairs with a finite path
 
     Exact -- every ordered pair -- whenever the graph is small enough that
-    all-pairs BFS fits; Minnesota at 2642 nodes is. Luxembourg at 114599 is not:
-    the distance matrix alone would be 1.3e10 entries, so there APL is estimated
+    all-pairs BFS fits; Oldenburg at 6105 nodes is (a 3.7e7-entry, ~300 MB
+    distance matrix). Luxembourg at 114599 is not: the distance matrix alone
+    would be 1.3e10 entries, so there APL is estimated
     from n_sources BFS sweeps. Which one was used is reported, never assumed.
 
     Unreachable pairs are excluded, as the definition says, and the reachable

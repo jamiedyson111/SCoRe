@@ -2,7 +2,7 @@
 
 Run LOCALLY in the `kmis` conda env (needs torch_sparse):
 
-    python make_private_release.py --graph minnesota --k 7
+    python make_private_release.py --graph oldenburg --k 7
 
 Everything downstream sees ONLY this file. It stands in for what a data holder
 would publish: the coarse graph and per-supernode summary statistics, never the
@@ -79,7 +79,7 @@ def density(n, m):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--graph', default='minnesota', choices=sorted(GRAPHS),
+    ap.add_argument('--graph', default='oldenburg', choices=sorted(GRAPHS),
                     help='the graph to treat as private')
     ap.add_argument('--k-hist', type=int, default=7,
                     help='hop-histogram WIDTH, separate from --k. The models were '

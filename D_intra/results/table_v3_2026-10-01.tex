@@ -1,0 +1,22 @@
+% Version 3 vs original, paired on identical held-out supernodes.
+% $^\ast$ = 95\% paired-bootstrap CI on the difference (V3 - Orig.) excludes zero:
+% the change is real, not necessarily an improvement -- compare with Real.
+% Real for edge-count MAE is the size-only rule m = n-1, as a baseline.
+% Nine columns: in the two-column ICDE template use table* for full width.
+\begin{tabular}{l rrr rrr rrr}
+\toprule
+ & \multicolumn{3}{c}{A: Lux$\to$Lux} & \multicolumn{3}{c}{B: Lux$\to$Minn} & \multicolumn{3}{c}{B: Lux$\to$Minn ($k{=}4$)} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+ & Orig. & V3 & Real & Orig. & V3 & Real & Orig. & V3 & Real \\
+\midrule
+Connected (\%) & 95.0 & 98.5$^\ast$ & 100.0 & 83.3 & 93.8 & 100.0 & 49.1 & 57.0 & 100.0 \\
+Acyclic (\%) & 79.7 & 83.2$^\ast$ & 88.1 & 20.8 & 29.2 & 27.1 & 41.2 & 77.2$^\ast$ & 56.1 \\
+Components & 1.05 & 1.02$^\ast$ & 1.00 & 1.19 & 1.06 & 1.00 & 1.80 & 1.61 & 1.00 \\
+Edges (mean) & 12.45 & 12.46 & 12.42 & 29.65 & 28.40$^\ast$ & 29.50 & 10.96 & 10.30$^\ast$ & 11.47 \\
+Edge-count MAE $\downarrow$ & 0.30 & 0.18$^\ast$ & 0.19 & 1.60 & 1.35 & 2.79 & 1.30 & 1.40 & 0.82 \\
+Degree dist.\ vs.\ real $\downarrow$ & 0.036 & 0.022$^\ast$ & -- & 0.089 & 0.218$^\ast$ & -- & 0.105 & 0.250$^\ast$ & -- \\
+Spectrum vs.\ real $\downarrow$ & 0.070 & 0.070 & -- & 0.054 & 0.055 & -- & 0.117 & 0.105 & -- \\
+\midrule
+Supernodes & \multicolumn{3}{c}{882} & \multicolumn{3}{c}{48} & \multicolumn{3}{c}{114} \\
+\bottomrule
+\end{tabular}

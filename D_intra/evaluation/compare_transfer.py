@@ -9,7 +9,7 @@ Run LOCALLY in the `kmis` env once all three configurations have been sampled:
 
 Emits three tables:
   1. Realism   -- generated vs real, per configuration, with a random floor
-  2. Transfer  -- B and C side by side on the SAME held-out Minnesota supernodes
+  2. Transfer  -- B and C side by side on the SAME held-out private supernodes
   3. Condition -- whether rho_in is used, per configuration
 
 Also writes LaTeX for tables 1 and 2 with --latex.
@@ -24,20 +24,29 @@ from evaluate_clusters import (agg, dense_adj, describe, dist_to_real, er_like,
                                parse_generated, partial_corr)
 
 SEED = 0
-DEFAULT_TAG = "lux2minn_k7"
-DESCRIPTIONS = {
-    "A": "train Lux -> test Lux",
-    "B": "train Lux -> test Minn",
-    "C": "train Lux+Minn -> test Minn",
-}
+DEFAULT_TAG = "lux2olde_k7"
+# The private graph is named in the tag (pub2priv_k..., see
+# make_transfer_datasets.py), so the labels follow it rather than being fixed.
+PRIVATE_NAMES = {"minn": ("Minn", "Minnesota"), "olde": ("Olde", "Oldenburg")}
+
+
+def private_name(tag):
+    """(short, full) name of the private graph a dataset tag was built for."""
+    key = tag.split("2", 1)[1].split("_", 1)[0]
+    return PRIVATE_NAMES.get(key, (key.capitalize(), key.capitalize()))
 
 
 def configs(tag):
     """(key, pairs filename, description) for a given dataset tag."""
-    return [(k, f"pairs_{k}_{tag}.pt", DESCRIPTIONS[k]) for k in ("A", "B", "C")]
+    short, _ = private_name(tag)
+    desc = {"A": "train Lux -> test Lux",
+            "B": f"train Lux -> test {short}",
+            "C": f"train Lux+{short} -> test {short}"}
+    return [(k, f"pairs_{k}_{tag}.pt", desc[k]) for k in ("A", "B", "C")]
 
 
 CONFIGS = configs(DEFAULT_TAG)
+PRIVATE = private_name(DEFAULT_TAG)
 
 
 def load(gen_path, pairs_path):
@@ -112,9 +121,9 @@ def table_realism(res):
 def table_transfer(res):
     if not ({"B", "C"} <= set(res)):
         return
-    print("\nTABLE 2 -- Transfer to Minnesota (identical held-out supernodes)")
+    print(f"\nTABLE 2 -- Transfer to {PRIVATE[1]} (identical held-out supernodes)")
     print("=" * 78)
-    print(f"{'':<30}{'B: Lux only':>16}{'C: Lux + Minn':>16}{'delta':>12}")
+    print(f"{'':<30}{'B: Lux only':>16}{'C: Lux + ' + PRIVATE[0]:>16}{'delta':>12}")
     print("-" * 78)
     # "close" == the real graph is the target and BOTH models can overshoot it,
     # so nearer to real wins; "low" == a distance that is already 0-is-best.
@@ -142,7 +151,7 @@ def table_transfer(res):
             arrow = "  better" if gap < 0 else ("  worse" if gap > 0 else "")
         print(f"{label:<30}{fmt.format(b):>16}{fmt.format(cc):>16}{d:>+12.4f}{arrow}")
     print("-" * 78)
-    print(f"  real Minnesota reference: connected {res['B']['real']['connected']:.1f}%, "
+    print(f"  real {PRIVATE[1]} reference: connected {res['B']['real']['connected']:.1f}%, "
           f"acyclic {res['B']['real']['forest']:.1f}%, edges {res['B']['real']['mean_m']:.2f}")
     print(f"  test set: {res['B']['n_graphs']} supernodes (shared by B and C)")
 
@@ -171,7 +180,7 @@ def latex_transfer(res):
     print("\n% ---- LaTeX: transfer table ----")
     print("\\begin{tabular}{lrrr}")
     print("\\toprule")
-    print(" & B: Lux only & C: Lux + Minn & Real Minnesota \\\\")
+    print(f" & B: Lux only & C: Lux + {PRIVATE[0]} & Real {PRIVATE[1]} \\\\")
     print("\\midrule")
     for label, path, fmt in [("Connected (\\%)", ("gen", "connected"), "{:.1f}"),
                              ("Acyclic (\\%)", ("gen", "forest"), "{:.1f}"),
@@ -204,8 +213,9 @@ def main():
     args = ap.parse_args()
     rng = np.random.default_rng(SEED)
 
-    global CONFIGS
+    global CONFIGS, PRIVATE
     CONFIGS = configs(args.tag)
+    PRIVATE = private_name(args.tag)
 
     res = {}
     for key, pairs_file, desc in CONFIGS:

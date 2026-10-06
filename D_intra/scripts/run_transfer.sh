@@ -14,8 +14,15 @@
 # Train and sample ONE configuration of the D_intra transfer study.
 #
 #   sbatch scripts/run_transfer.sh A      train Luxembourg -> test Luxembourg
-#   sbatch scripts/run_transfer.sh B      train Luxembourg -> test Minnesota
-#   sbatch scripts/run_transfer.sh C      train Lux + Minn -> test Minnesota
+#   sbatch scripts/run_transfer.sh B      train Luxembourg -> test Oldenburg
+#   sbatch scripts/run_transfer.sh C      train Lux + Olde -> test Oldenburg
+#
+# Only C needs training for Oldenburg. A and B never see the private graph during
+# training: A's pairs file is byte-identical to the Minnesota one, and B's train
+# and val splits and standardisation are too (checked 2026-10-05) -- only B's
+# TEST split changed. Their existing checkpoints are the Oldenburg models, so
+# re-sample them with run_sample_conditional.sh rather than paying 6 GPU hours
+# to reproduce them. scripts/run_olde_transfer.sh submits exactly that.
 #
 # Trains, then generates one subgraph per test supernode from the best
 # checkpoint, in a single job.
@@ -51,24 +58,16 @@ case "$CFG" in
 esac
 
 case "$BASE" in
-    A) DATASET=cluster_A_lux2minn_k7 ;;
-    B) DATASET=cluster_B_lux2minn_k7 ;;
-    C) DATASET=cluster_C_lux2minn_k7 ;;
+    A) DATASET=cluster_A_lux2olde_k7 ;;
+    B) DATASET=cluster_B_lux2olde_k7 ;;
+    C) DATASET=cluster_C_lux2olde_k7 ;;
     # The no-hop ablation: identical splits and seed, condition truncated to
     # [n, rho_in, k]. NAME picks up the suffix, so these get their own run
     # directories, checkpoints and sample dumps and cannot collide with A/B/C.
-    A_nohop) DATASET=cluster_A_lux2minn_k7_nohop ;;
-    B_nohop) DATASET=cluster_B_lux2minn_k7_nohop ;;
-    C_nohop) DATASET=cluster_C_lux2minn_k7_nohop ;;
-    # Minnesota coarsened at k=4 instead of 7 (Luxembourg stays at 7). Only C
-    # appears here, and that is not an oversight: B trains on Luxembourg alone,
-    # so its training set is untouched by the private graph's k and its model is
-    # bit-for-bit the model that already exists. Retraining B would burn 6 GPU
-    # hours to reproduce a checkpoint you have. Re-sample it instead:
-    #     sbatch scripts/run_sample_conditional.sh B_k4
-    C_k4)       DATASET=cluster_C_lux2minn_k7k4 ;;
-    C_k4_nohop) DATASET=cluster_C_lux2minn_k7k4_nohop ;;
-    *) echo "usage: sbatch scripts/run_transfer.sh {A|B|C}[_nohop] | C_k4[_nohop]" >&2
+    A_nohop) DATASET=cluster_A_lux2olde_k7_nohop ;;
+    B_nohop) DATASET=cluster_B_lux2olde_k7_nohop ;;
+    C_nohop) DATASET=cluster_C_lux2olde_k7_nohop ;;
+    *) echo "usage: sbatch scripts/run_transfer.sh {A|B|C}[_nohop]" >&2
        echo "       optionally suffixed _v3, _centroid or _hopmlp" >&2
        exit 1 ;;
 esac
@@ -78,6 +77,11 @@ if [ ${#V3[@]} -gt 0 ] && [[ "$BASE" == *_nohop ]] && [[ "${V3[*]}" == *hop_embe
 fi
 
 NAME="transfer_$CFG"
+# C is the one model whose training set contains the private graph, so the
+# Oldenburg C gets its own name. Under plain transfer_C, the newest-run lookup in
+# run_sample_conditional.sh would fall back to the Minnesota-trained C until this
+# one existed, and score it on Oldenburg without complaint.
+[[ "$BASE" == C* ]] && NAME="transfer_${CFG/#C/C_olde}"
 echo "configuration $CFG  ->  dataset=$DATASET  name=$NAME  ${V3[*]:-}"
 
 # THE LINE TO CHECK in this job's log:  "Size of the input features 7 2 NN"
@@ -101,7 +105,7 @@ echo "configuration $CFG  ->  dataset=$DATASET  name=$NAME  ${V3[*]:-}"
 #
 # Also expect the edge marginal:
 #   A, B   [0.8768, 0.1232]     Luxembourg train
-#   C      [0.9083, 0.0917]     Luxembourg + oversampled Minnesota
+#   C      [0.9009, 0.0991]     Luxembourg + oversampled Oldenburg
 # NLLs are not comparable between C and A/B because their marginals differ.
 
 # setup.sh sits at $ROOT/scripts/ or $ROOT/ depending on how the tree was

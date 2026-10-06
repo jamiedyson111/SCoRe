@@ -18,23 +18,35 @@
 #
 #   sbatch scripts/run_sample_conditional.sh B                     # newest transfer_B run
 #   sbatch scripts/run_sample_conditional.sh B /abs/path/epoch=N.ckpt
-#   sbatch scripts/run_sample_conditional.sh B_k4                  # Minnesota at k=4
+#   sbatch scripts/run_sample_conditional.sh C_v3                  # newest transfer_C_olde_v3 run
+#   sbatch scripts/run_sample_conditional.sh --repeats 5 B         # 5 seeded runs, one job
+#
+# --repeats N samples the test split N times (seeds 0..N-1) from the one loaded
+# checkpoint and writes conditional_samples_s<seed>.txt for each, into a run
+# directory suffixed _x<N> so it cannot be mistaken for a single-run sample.
+# evaluation/repeat_summary.py turns them into median / std per metric.
+#
+# It is an ARGUMENT, not an environment variable, on purpose: BlueBEAR's
+# job-submit plugin does not carry the submitting shell's environment into the
+# job. `REPEATS=5 sbatch ...` was tried on 2026-10-06 and every job silently
+# sampled once.
 #   sbatch scripts/run_sample_conditional.sh legacy                # the old cluster_lux model
 #
 # The configuration name is required because it fixes BOTH the checkpoint and the
 # dataset, and those two must agree on CONDITION WIDTH or the run dies with a
 # shape error on the first batch:
 #
-#   A/B/C and *_k4          10-dim [n, rho_in, k, h1..h7]   width 22
+#   A/B/C                   10-dim [n, rho_in, k, h1..h7]   width 22
 #   *_nohop                  3-dim [n, rho_in, k]           width 15
 #   legacy cluster_lux       3-dim, and predates the k-MIS fix
 #
-# The k=4 datasets keep the 7-wide hop histogram on purpose -- a k=4 cluster has
-# provably empty rings 5..7 -- so they are width-compatible with the k=7
-# checkpoints and no retraining is needed to feed them in.
+# The private graph is Oldenburg at k=7. A and B were trained on Luxembourg
+# alone, so the existing transfer_A / transfer_B checkpoints are the Oldenburg
+# models: only B's test split changed. C trains on Oldenburg too, so its runs are
+# named transfer_C_olde and must exist (run_transfer.sh C) before C is sampled.
 #
-# Up to 882 test supernodes x 500 denoising steps. 2h is generous; the k=4
-# transfer splits are 114 supernodes and finish in minutes.
+# Up to 882 test supernodes x 500 denoising steps. 2h is generous; the Oldenburg
+# test split is 160 supernodes and finishes in minutes.
 
 set -euo pipefail
 
@@ -47,14 +59,17 @@ ROOT=/rds/projects/c/chenhp-graphsyn/D_intra
 [ -d "$ROOT/src" ] || ROOT=$(dirname "$ROOT")
 
 # DATASET fixes which conditions are fed in; NAME fixes which checkpoint is used.
-# They are separate variables because the k=4 configurations deliberately pair a
-# NEW dataset with an EXISTING checkpoint -- see B_k4 below. SAMPLE_NAME is
-# derived from $CFG rather than $NAME so two datasets sharing one checkpoint
-# still write to different run directories instead of overwriting each other.
+# They are separate variables because B deliberately pairs the Oldenburg dataset
+# with the checkpoint trained before Oldenburg existed -- see B below.
+REPEATS=1
+if [ "${1:-}" = "--repeats" ]; then
+    REPEATS="${2:?--repeats needs a count}"
+    shift 2
+fi
 CFG="${1:-}"
 # Version 3 suffix (_v3 | _centroid | _hopmlp), as in run_transfer.sh. The
 # checkpoint comes from the suffixed run and the dataset gets the same switches,
-# so B_k4_v3 resamples the transfer_B_v3 model on Minnesota at k=4.
+# so B_v3 resamples the transfer_B_v3 model on Oldenburg.
 V3=()
 SFX=""
 case "$CFG" in
@@ -63,30 +78,24 @@ case "$CFG" in
     *_hopmlp)   SFX=_hopmlp;   V3=(model.hop_embed_dim=1) ;;
 esac
 CFG="${CFG%$SFX}"
+# B points the Oldenburg dataset at the EXISTING transfer_B checkpoint, and that
+# is correct rather than a shortcut. B trains and validates on Luxembourg only,
+# so swapping the private graph changes B's TEST split and nothing else -- same
+# training records, same standardisation statistics, same weights (checked
+# against pairs_B_lux2minn_k7.pt on 2026-10-05). A is the same story with an
+# unchanged test split too. C's training set contains Oldenburg clusters, so
+# transfer_C_olde must be trained with run_transfer.sh before it is sampled here.
 case "$CFG" in
-    A|B|C)  DATASET="cluster_${CFG}_lux2minn_k7";       NAME="transfer_$CFG" ;;
-    A_nohop|B_nohop|C_nohop)
-            DATASET="cluster_${CFG%_nohop}_lux2minn_k7_nohop"
+    A|B)    DATASET="cluster_${CFG}_lux2olde_k7";        NAME="transfer_$CFG" ;;
+    C)      DATASET="cluster_C_lux2olde_k7";             NAME="transfer_C_olde" ;;
+    A_nohop|B_nohop)
+            DATASET="cluster_${CFG%_nohop}_lux2olde_k7_nohop"
             NAME="transfer_$CFG" ;;
-
-    # Minnesota at k=4, Luxembourg still at k=7.
-    #
-    # B_k4 points a NEW dataset at the EXISTING transfer_B checkpoint, and that is
-    # correct rather than a shortcut. B trains and validates on Luxembourg only,
-    # so changing the private graph's coarsening changes B's TEST split and
-    # nothing else -- same training records, same standardisation statistics
-    # (computed from the training split), same weights. Retraining would produce
-    # the same model up to seed noise and cost 6 GPU hours. C is different: its
-    # training set now contains k=4 clusters, so C_k4 must be trained with
-    # run_transfer.sh before it can be sampled here.
-    B_k4)       DATASET="cluster_B_lux2minn_k7k4";       NAME="transfer_B" ;;
-    B_k4_nohop) DATASET="cluster_B_lux2minn_k7k4_nohop"; NAME="transfer_B_nohop" ;;
-    C_k4)       DATASET="cluster_C_lux2minn_k7k4";       NAME="transfer_C_k4" ;;
-    C_k4_nohop) DATASET="cluster_C_lux2minn_k7k4_nohop"; NAME="transfer_C_k4_nohop" ;;
+    C_nohop) DATASET="cluster_C_lux2olde_k7_nohop";      NAME="transfer_C_olde_nohop" ;;
 
     legacy) DATASET="cluster_lux";                       NAME="cluster_lux" ;;
     *) echo "usage: sbatch scripts/run_sample_conditional.sh CFG [CKPT]" >&2
-       echo "  CFG = {A|B|C}[_nohop] | {B|C}_k4[_nohop] | legacy, optionally + _v3|_centroid|_hopmlp" >&2
+       echo "  CFG = {A|B|C}[_nohop] | legacy, optionally + _v3|_centroid|_hopmlp" >&2
        exit 1 ;;
 esac
 
@@ -166,14 +175,20 @@ cd "$ROOT/src"
 #     mismatched input '=' expecting <EOF>
 # Shell quotes do not help -- bash strips them before hydra sees the argument.
 # Hydra needs its OWN quotes inside the value, hence the '...' nested in "...".
-# From $CFG, not $NAME: B and B_k4 share a checkpoint (hence a NAME) but must not
-# share a run directory, or the second run silently overwrites the first's
-# conditional_samples.txt and you compare a file against itself.
-SAMPLE_NAME="transfer_${CFG}_sample"
+# From $CFG, not $NAME, and tagged _olde: B sampled on Oldenburg shares its
+# checkpoint (hence its NAME) with B sampled on Minnesota, and the two must not be
+# confused when the newest conditional_samples.txt is collected.
+SAMPLE_NAME="transfer_${CFG}_olde_sample"
+REP_ARGS=()
+if [ "$REPEATS" -gt 1 ]; then
+    SAMPLE_NAME="${SAMPLE_NAME}_x${REPEATS}"
+    REP_ARGS=("+repeats=$REPEATS")
+fi
 python3 sample_conditional.py \
     dataset="$DATASET" \
     +experiment=cluster_lux \
     ${V3[@]+"${V3[@]}"} \
+    ${REP_ARGS[@]+"${REP_ARGS[@]}"} \
     general.name="$SAMPLE_NAME" \
     general.gpus=1 \
     general.wandb=disabled \
@@ -181,4 +196,4 @@ python3 sample_conditional.py \
 
 echo
 echo "Done. Find the output with:"
-echo "  ls -t $ROOT/outputs/*/*${SAMPLE_NAME}*/conditional_samples.txt | head -1"
+echo "  ls -td $ROOT/outputs/*/*-${SAMPLE_NAME}/ | head -1"

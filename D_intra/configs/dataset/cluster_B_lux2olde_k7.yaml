@@ -1,0 +1,7 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# B: train Luxembourg -> test Oldenburg (transfer, zero private training data).
+# Train/val splits and standardisation are identical to pairs_B_lux2minn_k7.pt;
+# only the test split differs, so the existing transfer_B checkpoint is this model.
+pairs_file: 'pairs_B_lux2olde_k7.pt'

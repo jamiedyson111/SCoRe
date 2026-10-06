@@ -1,0 +1,6 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C: train Luxembourg + Oldenburg -> test Oldenburg. A new model: 126 private
+# train pairs oversampled x17 to 24% of 8,753; validates on 31 Oldenburg graphs.
+pairs_file: 'pairs_C_lux2olde_k7.pt'

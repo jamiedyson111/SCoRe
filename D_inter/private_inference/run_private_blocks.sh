@@ -21,7 +21,7 @@
 # number points here rather than at stage 1.
 #
 # Runtime scales with the number of connected pairs times the 500 reverse steps.
-# Minnesota k=7 has 217 pairs (~7 batches); Luxembourg has 10902 (~341 batches),
+# Oldenburg k=7 has 552 pairs (~18 batches); Luxembourg has 10902 (~341 batches),
 # which is why the wall clock is 4h rather than the 2h used for test sampling.
 
 set -euo pipefail

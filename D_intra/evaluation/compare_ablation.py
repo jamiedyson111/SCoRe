@@ -84,7 +84,7 @@ def main():
     ap.add_argument("--gen-full", required=True, help="samples from the 10-dim model")
     ap.add_argument("--gen-abl", required=True, help="samples from the 3-dim model")
     ap.add_argument("--pairs-dir", default="../data/cluster_lux/raw")
-    ap.add_argument("--tag", default="lux2minn_k7")
+    ap.add_argument("--tag", default="lux2olde_k7")
     ap.add_argument("--abl-suffix", default="_nohop")
     ap.add_argument("--latex", action="store_true")
     args = ap.parse_args()

@@ -218,6 +218,37 @@ training was always 0. Deliberate, per the design decision on 2026-08-14, but B'
 result is not an in-distribution number. Same for `h2`, which lands ~3.2 sigma
 above the Luxembourg training mean.
 
+## Oldenburg replaces Minnesota (2026-10-05)
+
+The private graph is now Oldenburg (Brinkhoff; 6,105 nodes, 7,029 edges, mean
+degree 2.30), read from `extraction/datasets/Brinkhoff/oldenburg/raw/OL.cedge`
+because it is not on SuiteSparse. The file has 7,035 rows; 6 are duplicate edges.
+
+**k=7, no per-graph k.** Coarsened at k=3..7 against Luxembourg k=7:
+
+| | supernodes | median n | mean h1..h7 |
+|---|---|---|---|
+| Luxembourg k=7 | 8815 | 11 | .23 .22 .23 .17 .09 .04 .01 |
+| Oldenburg k=7 | 317 | 15 | .20 .20 .23 .20 .11 .04 .01 |
+| Oldenburg k=6 | 392 | 13 | .23 .23 .27 .16 .08 .02 0 |
+| Oldenburg k=5 | 506 | 10 | .31 .32 .23 .10 .03 0 0 |
+| Oldenburg k=4 | 677 | 8 | .39 .41 .16 .04 0 0 0 |
+
+k=7 keeps the `k` column in-distribution for B and matches `h` best; the size
+shift (15 vs 11) is far milder than Minnesota's 28 vs 11.
+Split: 126 train / 31 val / 160 test; C oversamples x17 to 24% of 8,753, edge
+marginal [0.9009, 0.0991].
+
+**Only C retrains.** Checked against the Minnesota files: `pairs_A_lux2olde_k7`
+equals `pairs_A_lux2minn_k7` in every split (hops and no-hops), and B's
+train/val records, cond_mean and cond_std are identical -- only B's test split
+differs. Existing transfer_A*/transfer_B* checkpoints and A samples carry over.
+C runs as `transfer_C_olde*` so the newest-run lookup cannot fall back to the
+Minnesota C. `ablation_A` rebuilt on the new tag is identical to the old table.
+
+Assembly self-test (`make_graph.sh --real`) passes: 7029/7029 edges, 552/552
+pairs. APL's exact limit raised 5000 -> 6500 nodes to keep Oldenburg exact.
+
 ## Traps
 
 - processed cache is keyed on the pairs **filename**. Edit a `.pt` without

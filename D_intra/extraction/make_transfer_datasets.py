@@ -4,7 +4,8 @@ The scenario is public -> private transfer: D_intra is pretrained on a PUBLIC
 graph and used to reconstruct supernodes of a PRIVATE graph, so that the private
 graph's fine structure is never needed at training time.
 
-    python make_transfer_datasets.py                          # Luxembourg -> Minnesota
+    python make_transfer_datasets.py                          # Luxembourg -> Oldenburg
+    python make_transfer_datasets.py --private minnesota --k-private 4   # the old private graph
     python make_transfer_datasets.py --public luxembourg --private facebook --k 7
     python make_transfer_datasets.py --k-public 7 --k-private 4    # differing localities
 
@@ -20,8 +21,14 @@ k-supernodes. The default is one k throughout, and at equal k a denser private
 graph yields larger supernodes (Minnesota's mean degree is 2.50 against
 Luxembourg's 2.09, giving median cluster sizes of 28 vs 11 at k=7).
 
+Oldenburg, the default private graph, needs no override. Its mean degree is 2.30
+and at k=7 it gives 317 supernodes of median size 15, with a mean hop histogram
+of [0.20, 0.20, 0.23, 0.20, 0.11, 0.04, 0.01] against Luxembourg's
+[0.23, 0.22, 0.23, 0.17, 0.09, 0.04, 0.01]: the same locality and close to the
+same shape, so the k column stays in-distribution for B.
+
 --k-private lets the private graph be coarsened at its own locality, which is
-what the k=4 Minnesota configuration does: 226 supernodes of median size 11
+what the k=4 Minnesota configuration did: 226 supernodes of median size 11
 against 94 of median size 28, so the private clusters land on the SAME size
 distribution the model trained on, and the shared B/C test set grows from 47
 supernodes to 113. Two consequences, both real and both to be reported:
@@ -57,7 +64,7 @@ from kmis_pairs import GRAPHS, cond_names, extract_pairs, split_records, standar
 
 # ===========================================================================
 DEFAULT_PUBLIC = "luxembourg"
-DEFAULT_PRIVATE = "minnesota"
+DEFAULT_PRIVATE = "oldenburg"
 DEFAULT_K = 7
 
 # "h" expands to k columns: the hop histogram, the proportion of non-centroid

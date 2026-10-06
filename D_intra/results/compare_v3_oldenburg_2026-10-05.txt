@@ -1,0 +1,35 @@
+Version 3 vs original on Oldenburg k=7 -- paired bootstrap, 160 shared supernodes
+python evaluation/_bootstrap_pair.py oldenburg/{B,C} oldenburg/{B,C}_v3 lux2olde_k7 lux2olde_k7
+'<-- real' = 95% CI on the difference excludes zero (a real change, not necessarily an improvement)
+
+=================== B: orig vs v3 (Oldenburg)
+
+oldenburg/B  vs  oldenburg/B_v3      160 paired supernodes
+metric                   realoldenburg/Boldenburg/B_v3     diff        95% CI on diff
+----------------------------------------------------------------------------------
+connected %          100.0000    92.5000    93.7500   1.2500    [-4.3750, +6.8750]
+acyclic %             49.3750    51.8750    54.3750   2.5000   [-5.0000, +10.0000]
+components             1.0000     1.0750     1.0688  -0.0062    [-0.0625, +0.0500]
+edges (mean)          19.8938    20.1125    19.4875  -0.6250    [-0.9375, -0.3187]  <-- real
+density                0.1685     0.1683     0.1650  -0.0034    [-0.0087, +0.0006]
+node degree            2.0319     2.0543     1.9904  -0.0638    [-0.0916, -0.0358]  <-- real
+edge-count MAE         1.3125     1.1687     0.7688  -0.4000    [-0.6375, -0.1875]  <-- real
+                      (m=n-1)
+degree dist.           0.0000     0.0811     0.1596   0.0785    [+0.0500, +0.0998]  <-- real
+spectrum               0.0000     0.0752     0.0732  -0.0020    [-0.0061, +0.0024]
+=================== C: orig vs v3 (Oldenburg)
+
+oldenburg/C  vs  oldenburg/C_v3      160 paired supernodes
+metric                   realoldenburg/Coldenburg/C_v3     diff        95% CI on diff
+----------------------------------------------------------------------------------
+connected %          100.0000    99.3750    95.6250  -3.7500    [-6.8750, -0.6250]  <-- real
+acyclic %             49.3750    48.1250    44.3750  -3.7500   [-11.2500, +3.7500]
+components             1.0000     1.0063     1.0437   0.0375    [+0.0062, +0.0750]  <-- real
+edges (mean)          19.8938    20.4563    19.9250  -0.5312    [-0.8687, -0.2063]  <-- real
+density                0.1685     0.1678     0.1685   0.0007    [-0.0029, +0.0041]
+node degree            2.0319     2.0894     2.0351  -0.0543    [-0.0844, -0.0237]  <-- real
+edge-count MAE         1.3125     1.0500     0.6062  -0.4438    [-0.7000, -0.2125]  <-- real
+                      (m=n-1)
+degree dist.           0.0000     0.0658     0.1315   0.0658    [+0.0397, +0.0865]  <-- real
+spectrum               0.0000     0.0770     0.0746  -0.0024    [-0.0066, +0.0008]
+

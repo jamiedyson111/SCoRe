@@ -6,8 +6,8 @@ one generated adjacency L_i per supernode:
     python3 sample_private_clusters.py \
         dataset=cluster_lux +experiment=cluster_lux \
         general.test_only="'/abs/path/checkpoints/cluster_lux/epoch=NNN.ckpt'" \
-        +release=/abs/path/release_minnesota_k7.pt \
-        +out=/abs/path/clusters_minnesota_k7.pt
+        +release=/abs/path/release_oldenburg_k7.pt \
+        +out=/abs/path/clusters_oldenburg_k7.pt
 
 Note the LITERAL single quotes inside the double quotes on test_only. Hydra's
 override grammar cannot parse the second '=' in "epoch=NNN.ckpt"; the inner
@@ -111,7 +111,7 @@ def main(cfg: DictConfig):
     blob = datamodule.raw_blob()
     # blob['k'] is the k the model TRAINED at -- the public graph's. A transfer
     # dataset coarsens the private graph separately and records that as
-    # 'k_private', so Minnesota at k=4 against a Luxembourg-k=7 checkpoint is
+    # 'k_private', so a private graph at k=4 against a Luxembourg-k=7 checkpoint is
     # the configuration this pipeline exists to run, not an error.
     #
     # What would actually break the forward pass is dividing an unseen k by a

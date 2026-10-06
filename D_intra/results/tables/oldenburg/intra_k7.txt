@@ -1,0 +1,53 @@
+  B (hops): 160 matched blocks
+  B (no hops): 160 matched blocks
+  C (hops): 160 matched blocks
+  C (no hops): 160 matched blocks
+
+160 held-out supernodes, scored by every column
+
+                                    B (hops)   B (no hops)      C (hops)   C (no hops)          Real
+----------------------------------------------------------------------------------------------------
+Edges (median)                            15            15            15            15            15
+Edges (std)                           15.707        14.867        15.763        14.793        14.793
+Edges (mean)                          20.113        19.575        20.456        19.794        19.894
+Density (mean)                        0.1683        0.1622        0.1678        0.1676        0.1685
+Degree (median)                            2             2             2             2             2
+Degree (mean)                         2.0543        1.9994        2.0894        2.0217        2.0319
+Connected (%)                           92.5          96.9          99.4          98.1         100.0
+Acyclic (%)                             51.9          66.9          48.1          52.5          49.4
+----------------------------------------------------------------------------------------------------
+Degree dist. vs real                  0.0811        0.1251        0.0658        0.0906        0.0000
+
+  resolution floor of the degree distance at n=160: 0.0169 +/- 0.0083
+  (real blocks resampled to the same count, measured against the real set;
+   a generated value at or below this is not distinguishable from real)
+
+% ---- LaTeX ----
+\begin{table}[H]
+\centering
+\caption{Structural statistics of generated supernode blocks against real
+held-out blocks, on the Oldenburg $k{=}7$ test split, for a model trained on
+Luxembourg $k{=}7$. For the upper block, closer to the real column is
+better. Generation is one block per held-out supernode, so all columns are
+scored on the same 160 blocks and the real column is compared against
+itself, giving exactly $0$ on the lower block. Resampling the real blocks to
+the same count gives a $W_1$ of $0.0169 \pm 0.0083$ rather
+than $0$, which is the resolution limit of the metric at this sample size.}
+\label{tab:dintra-lux2olde-k7-stats}
+\begin{tabular}{lrrrrr}
+\toprule
+ & B (hops) & B (no hops) & C (hops) & C (no hops) & Real \\
+\midrule
+Edges (median)                     & 15 & 15 & 15 & 15 & 15 \\
+Edges (std)                        & 15.707 & 14.867 & 15.763 & 14.793 & 14.793 \\
+Edges (mean)                       & 20.113 & 19.575 & 20.456 & 19.794 & 19.894 \\
+Density (mean)                     & 0.1683 & 0.1622 & 0.1678 & 0.1676 & 0.1685 \\
+Degree (median)                    & 2 & 2 & 2 & 2 & 2 \\
+Degree (mean)                      & 2.0543 & 1.9994 & 2.0894 & 2.0217 & 2.0319 \\
+Connected (\%)                     & 92.5 & 96.9 & 99.4 & 98.1 & 100.0 \\
+Acyclic (\%)                       & 51.9 & 66.9 & 48.1 & 52.5 & 49.4 \\
+\midrule
+Degree distribution vs.\ real $\downarrow$ & 0.0811 & 0.1251 & 0.0658 & 0.0906 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
