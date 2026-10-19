@@ -9,7 +9,6 @@ Scores generated supernode subgraphs against the real held-out ones.
 | `make_intra_table.py` | single-run table; also defines the shared statistics `repeat_summary.py` imports |
 | `compare_transfer.py` | single-run A / B / C comparison table |
 | `compare_ablation.py` | single-run full condition vs no-hop ablation |
-| `_bootstrap_bc.py`, `_bootstrap_pair.py` | paired bootstrap tests between two runs on the same supernodes |
 
 ## Main table
 

@@ -1,5 +1,0 @@
-name: coarse_sbm
-remove_h: null
-datadir: 'data/coarse_sbm/'
-# the file produced by k-mis-pool/make_coarse.py, uploaded to data/coarse_sbm/raw/
-coarse_file: 'coarse_sbm_k1.pt'

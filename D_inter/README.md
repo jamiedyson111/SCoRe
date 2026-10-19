@@ -1,185 +1,135 @@
-# D_inter — inter-supernode model
+# D_inter: the edges between two supernodes
 
-The second of the two models: the edges **between** supernodes, conditioned on
-`c_ij`. D_intra fills in each supernode; D_inter connects them.
+A conditional DiGress model that **inpaints** one block. For a connected pair of
+supernodes (i, j) it is shown the combined graph
 
-This folder is **self-contained** — it holds the model code and everything else
-needed to run, so it uploads to BlueBEAR as-is:
+    H_ij = [ L_i    B_ij ]      local ids 0 .. n_i-1        are side i
+           [ B_ijᵀ  L_j  ]      local ids n_i .. n_i+n_j-1  are side j
+
+with the two insides L_i, L_j given (re-imposed after every denoising step) and
+generates only the cross block B_ij, from the condition
+
+    c_ij = [n_i, rho_i, n_j, rho_j, w_ij, k]          (V1; w_ij = number of cross edges)
+
+Steps 4-6 of the pipeline (see the top-level README) live here, plus stages 2-3
+of the full-graph assembly and its evaluation (steps 7-8).
+
+```
+dataprep/            step 4: supernode-pair datasets                 (local, kmis env)
+configs/             hydra configs; dataset/pair_lux.yaml (A, B), pair_{B,C}_lux2olde_k7.yaml
+data/pair_lux/raw    the datasets from step 4, read by training
+src/                 DiGress + the conditional/inpainting modifications (MODIFICATIONS.md)
+scripts/             step 5-6 BlueBEAR jobs                          (digress env)
+evaluation/          step 6 scoring                                   (local, kmis env)
+private_inference/   steps 7-8: D_inter on every pair, assembly, full-graph scoring
+make_tables.sh       the original Luxembourg table (Table V)
+```
+
+## Step 4: k-MIS + pair datasets (local)
 
 ```bash
-rsync -avz D_inter/ dysonjz@bluebear.bham.ac.uk:/rds/projects/c/chenhp-graphsyn/D_inter/
+cd D_inter/dataprep
+python make_pair_blocks.py        # Luxembourg pairs (configuration A); K is set at the top
+python make_transfer_pairs.py     # B and C: adds the Oldenburg pairs
 ```
+
+Writes `data/pair_lux/raw/` (minutes to an hour). Upload it to BlueBEAR before training.
+
+| file | train / val / test |
+|---|---|
+| `pairs_inter_luxembourg_osm_k7.pt` (V1) | 8176 / 1635 / 1091 Luxembourg pairs -- A and B train on this |
+| `pairs_inter_luxembourg_osm_k7_v2.pt` | the same pairs with the 11-dim V2 condition (V1 + out-degree profile r); `make_pair_blocks.py` writes this, and V1 is its first 6 columns |
+| `pairs_inter_B_lux2olde_k7.pt` | Luxembourg train / val, **276 Oldenburg test pairs** |
+| `pairs_inter_C_lux2olde_k7.pt` | Luxembourg + Oldenburg train (×12), Oldenburg val, the same 276 test pairs |
+
+Which supernode takes the i slot is randomised. Pairs above 128 combined nodes
+are dropped from training (3 on Oldenburg).
+
+## Step 5: train (BlueBEAR)
 
 ```bash
-cd /rds/projects/c/chenhp-graphsyn/D_inter && sbatch scripts/run_pair_debug.sh
+cd /rds/projects/c/chenhp-graphsyn/D_inter
+sbatch scripts/run_pair.sh pair_lux pair_lux                       # A and B (one model)
+sbatch scripts/run_pair.sh pair_C_lux2olde_k7 pair_C_olde          # C
 ```
 
-The shared model code has a single source of truth in `../DiGress_upload/` and is
-copied in by `../sync.sh`. Edit it there, not here. D_inter's own files —
-`src/datasets/pair_dataset.py`, the `pair_lux` configs, `data/`, `scripts/`,
-`evaluation/`, `dataprep/` — live here and sync never touches them.
-`../sync.sh --check` lists any synced file that has drifted.
+250 epochs, 12 h limit (C: ~3 min per epoch, so it stops near epoch 242).
+Checkpoints: `outputs/<date>/<time>-<name>/checkpoints/<name>/epoch=N.ckpt`. The
+ones in use:
 
-## What it does
+- **A and B:** `outputs/2026-08-06/16-57-54-pair_lux/checkpoints/pair_lux/epoch=179.ckpt`
+  (the val cross-block loss minimum).
+- **C:** the newest `pair_C_olde` run at the checkpoint it recorded as best
+  (`epoch=219`). C over-fits: its cross-block loss was lowest near epoch 19.
 
-For a pair of supernodes, everything is stored as one combined graph
+## Step 6: evaluate (BlueBEAR, then local)
 
-```
-H_ij = [ L_i    B_ij  ]
-       [ B_ij^T L_j   ]
-```
-
-Only the cross block `B_ij` is generated. `L_i` and `L_j` are observed context:
-never noised, never predicted, contributing to no loss. `X` is a 2-class **side**
-indicator, so an entry of `E` is a cross entry exactly when its endpoints have
-different node classes — that is how the model derives the mask, and it stays
-exact at every step because `X` is never noised.
-
-Condition `c_ij = [n_i, rho_i, n_j, rho_j, w_ij, k]`, standardised on train.
-
-## Layout
-
-```
-dataprep/make_pair_blocks.py   builds the dataset. Runs LOCALLY in the `kmis` env
-dataprep/make_pairs.py         D_intra's generator, kept as reference
-src/datasets/pair_dataset.py   dataset, datamodule, infos, W_out-degree metric
-configs/dataset/pair_lux.yaml
-configs/experiment/pair_lux.yaml
-data/pair_lux/raw/             the .pt the dataset reads
-evaluation/evaluate_pairs.py   scores generated_samples*.txt against real blocks
-evaluation/pair_stats.py       the full structural table, plain text + LaTeX
-make_tables.sh                 runs both of the above, no arguments
-scripts/                       SLURM jobs; submit as `sbatch scripts/<name>.sh`
-```
-
-Everything else under `src/` and `configs/` is a synced copy of the shared code.
-
-## Dataset
-
-10,902 connected supernode pairs from Luxembourg at k=7, split by pair into
-8176 / 1635 / 1091. Built from the **fixed** k-MIS coarsening (2026-08-06), so
-100% of internal blocks are connected, over the same 8815 supernodes D_intra now
-uses — the two models are consistent by construction.
-
-Rebuild with:
+One generated cross block per test pair, 5 seeds, around the **real** L_i and L_j:
 
 ```bash
-cd dataprep && conda activate kmis && python make_pair_blocks.py
+bash scripts/run_pairs_repeats.sh 5 B C          # ~1 h each
+bash scripts/run_pairs_repeats.sh 5 A            # 1091 pairs, ~2-3 h
 ```
 
-## Producing the tables
-
-One command, no arguments, no `conda activate` — the script activates `kmis`
-itself and scores the newest `generated_samples*.txt` it can find (project root,
-then `outputs/*/*/`):
+Output: `outputs/<date>/<time>-pairs_<CFG>_sample_x5/pair_samples_s0.pt … _s4.pt`.
+Copy them to the local `results/samples/D_inter/transfer/<CFG>_s<seed>.pt`, then:
 
 ```bash
-./make_tables.sh
+cd D_inter/evaluation
+python transfer_summary.py --configs B C BS1 BS2        # Oldenburg
+python transfer_summary.py --configs A A_BS1 A_BS2      # Luxembourg
 ```
 
-Output lands in `../results/D_inter/tables/`: `pair_stats.txt` (the structural table against
-real, with the uniform and zero baselines beside it), `degree_w1.txt` (the
-out-degree metric alone with its three reference points), and, under
-`../results/D_inter/tables/pair_stats/`, the LaTeX, the per-pair CSVs and the plots.
+Writes `results/D_inter/tables/transfer/pairs_summary.tsv` (A: `_A.tsv`): mean ±
+std over the 5 seeds of cross edges, cross density and D_out (mean and std),
+degree W1 and the out-degree-profile error E_r. See `evaluation/README.md`.
 
-`./make_tables.sh --list` prints the table names, `./make_tables.sh pair_stats`
-runs one, and a path argument scores a specific file:
+## Step 7, stages 2-3: assemble the full graph
+
+After D_intra's stage 1 has generated every supernode
+(`clusters_oldenburg_k7_B_v3_s<seed>.pt`, see `D_intra/README.md`), D_inter
+generates the cross block of **every** connected pair (552 on Oldenburg) around
+those generated insides, seed for seed:
 
 ```bash
-./make_tables.sh outputs/2026-08-10/12-30-00-graph-tf-model/generated_samples1.txt
+cd /rds/projects/c/chenhp-graphsyn/D_intra && J=$(sbatch --parsable private_inference/run_private_clusters_repeats.sh --repeats 5 B_v3)
+cd /rds/projects/c/chenhp-graphsyn/D_inter && sbatch --dependency=afterok:$J private_inference/run_private_blocks_repeats.sh --repeats 5 B B_v3
 ```
 
-Two environment overrides matter. `SPLIT=val` scores the validation split, and
-`PAIRS=` picks the blob — **it must be the one the model trained on**. Both files
-are on disk and differ only in the width of `y`, so the wrong one compares
-against a different condition in silence. v1 (`dataset=pair_lux`) is the default:
+(C: `C_v3` and `C C_v3`.) Output, beside the release in BlueBEAR's
+`D_intra/private_inference/out/`: `blocks_oldenburg_k7_B_v3-B_s<seed>.pt`. About
+1 h for stage 1 and 1.5-2 h for stage 2. Copy the `clusters_*` and `blocks_*`
+files to the local `results/samples/assembled/`.
+
+Stage 3, placing every L_i on the diagonal and every B_ij off it to get one
+6105-node graph on Oldenburg's own nodes, happens inside step 8.
+
+For a single graph end to end (release, both BlueBEAR jobs, assembly, scoring)
+there is also `../make_graph.sh` at the top of the project.
+
+## Step 8: evaluate the full graph (local)
 
 ```bash
-PAIRS=data/pair_lux/raw/pairs_inter_luxembourg_osm_k7_v2.pt ./make_tables.sh
+cd D_inter/private_inference
+python syn_repeats_summary.py                     # B_v3-B and C_v3-C
 ```
 
-`../make_tables.sh` does this folder and D_intra together.
+Assembles each seed's graph and scores it against real Oldenburg: nodes, edges
+(internal = D_intra's, cross = D_inter's), mean degree, density, components, GCC,
+APL, and the errors RE_GCC, degW, RE_APL. BS1 / BS2 are built alongside, and
+competitor graphs in `results/competitors/` (ICLR2, HiGen; DiGress as OOM) are
+added as columns. Writes `results/D_inter/tables/syn/syn_sheet.tsv` (spreadsheet)
+and `syn_table.tex`.
 
-Tables are a LOCAL step -- the samples come off BlueBEAR, the tables are built
-here. If you do want them on the cluster, the script works there unchanged:
-there is no `kmis` env on BlueBEAR and none is needed, since these scripts import
-only numpy/scipy/networkx/torch, so it falls back to sourcing `setup.sh` and runs
-in `digress`, giving identical numbers.
+## Running another k
 
-## Transfer: configurations A / B / C (Luxembourg → Oldenburg)
+The model does not fix k; a new k means new datasets and new training. Today:
 
-Mirrors D_intra's study.
-
-| | Train | Test | Model |
-|---|---|---|---|
-| A | Luxembourg | Luxembourg (1091 pairs) | the existing V1 `pair_lux` checkpoint (epoch=179) |
-| B | Luxembourg | Oldenburg (276 pairs) | **the same checkpoint** — B's train/val data is pair_lux's |
-| C | Luxembourg + Oldenburg (219 pairs ×12, 24%) | Oldenburg (same 276) | new: `pair_C_olde` |
-
-Oldenburg k=7 gives 549 connected pairs (3 dropped above `MAX_COMBINED`), split
-0.40 / 0.10 / 0.50 as in D_intra. Condition is V1 throughout.
-
-```bash
-cd dataprep && conda activate kmis && python make_transfer_pairs.py   # writes pairs_inter_{B,C}_lux2olde_k7.pt
-```
-
-On BlueBEAR (dataset and name are arguments — BlueBEAR drops env vars):
-
-```bash
-sbatch scripts/run_pair.sh pair_C_lux2olde_k7 pair_C_olde      # train C, ~7-8 h
-bash scripts/run_pairs_repeats.sh 5 B                           # sample B now, ~1 h
-bash scripts/run_pairs_repeats.sh 5 A                           # optional, ~2-3 h
-bash scripts/run_pairs_repeats.sh 5 C                           # after C trains, ~1 h
-```
-
-`src/sample_pairs_conditional.py` generates one cross block per test pair (real
-L_i, L_j as context, the pair's own condition), `+repeats=N` seeds 0..N-1. Copy
-each `pair_samples_s<seed>.pt` to `../results/samples/D_inter/transfer/<CFG>_s<seed>.pt`, then
-
-```bash
-cd evaluation && python transfer_summary.py            # B and C -> ../results/D_inter/tables/transfer/pairs_summary.tsv
-cd evaluation && python transfer_summary.py --configs A
-```
-
-Eight rows, mean ± std across seeds: cross edges mean/std, cross density
-mean/std, D_out mean/std, degree W1 (`pair_stats.py`'s pooled cross-degree), and
-E_r = 1/N_test Σ_i Σ_d |r̂_i(d) − r_i(d)|, the out-degree-profile analogue of
-D_intra's E_h (r as in `make_pair_blocks.py`, d = 0..3, ≥4).
-
-## Reading the numbers
-
-The cross block is **very** sparse: mean density 0.0068, and **91.2% of pairs
-have exactly one cross edge**. Two consequences:
-
-- **`val/cross_CE` is the signal.** The constant-predictor floor is **0.02884
-  nats** — what you score by ignoring the input and predicting the average
-  density everywhere. It starts around 0.20, so *above* 0.0288 means worse than
-  a constant. Below it means the model has learned where edges go.
-
-- **`W_out-degree` is nearly blind here.** With one edge per pair the out-degree
-  histogram is the same whichever node gets it: uniformly random placement
-  scores 0.00017 against real, versus 0.0748 for emitting nothing. It measures
-  edge-count calibration, not placement. Reported because the brief asks for it;
-  the uniform baseline is printed beside it every time.
-
-## Smoke test first
-
-```bash
-sbatch scripts/run_pair_debug.sh
-```
-
-Four checks, documented in that script's header — input features `8 2 18`, node
-marginal `[0.5002, 0.4998]`, edge marginal `[0.9955, 0.0045]`, `Val Atom type KL
-0.00`. The edge marginal is the one that fails silently: if it reads nearer
-`[0.97, 0.03]` the whole-graph marginal is being used instead of the cross-block
-one, the limit distribution is wrong, and sampling degrades while training still
-looks healthy.
-
-## Open
-
-- `w_ij` is in the condition, so the model is told how many edges to place. The
-  remaining task is only *where*. Consider dropping it if this proves trivial.
-- Cross blocks are generated one pair at a time with nothing coordinating them,
-  so a node's total degree across all its pairs is unconstrained.
-- Private inference — assembling `L^syn` from D_intra's and D_inter's output —
-  is not built.
+1. In `dataprep/make_pair_blocks.py`, set `K` at the top; it writes the V2 file.
+   Make the V1 file by keeping the first 6 condition columns (as
+   `make_transfer_pairs.py` does for B and C).
+2. Create `configs/dataset/pair_lux_kK.yaml` naming that file, and train with
+   `sbatch scripts/run_pair.sh pair_lux_kK pair_lux_kK`.
+3. In `scripts/run_sample_pairs_transfer.sh`, configuration A's dataset is
+   `pair_lux`; change it to `pair_lux_kK`, and pass the new checkpoint as the
+   second argument: `sbatch scripts/run_sample_pairs_transfer.sh --repeats 5 A /abs/epoch=N.ckpt`.

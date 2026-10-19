@@ -13,10 +13,7 @@ Luxembourg + Oldenburg → test Oldenburg), each optionally `_nohop`, and suffix
 | `run_olde_transfer.sh` | everything for the Oldenburg transfer tables (train C, resample A/B) | `bash scripts/run_olde_transfer.sh _v3` |
 | `run_sample_conditional.sh` | **sample** a trained configuration's test split, N seeds | `sbatch scripts/run_sample_conditional.sh --repeats 5 B_v3` |
 | `run_olde_repeats.sh` | submit `run_sample_conditional.sh --repeats N` for several configurations | `bash scripts/run_olde_repeats.sh 5 B_v3 C_v3` |
-| `run_evaluate.sh` | score one `conditional_samples.txt` on BlueBEAR | `sbatch scripts/run_evaluate.sh` |
-| `run_cluster.sh` / `run_cluster_debug.sh` | the original single-graph D_intra model (`cluster_lux`) | `sbatch scripts/run_cluster.sh` |
 | `setup.sh` | sourced by every job: modules, the `digress` env, orca permissions | -- |
-| `legacy/` | DiGress-era and Minnesota-era scripts, kept for reference | -- |
 
 `--repeats` must be an argument, not an environment variable: BlueBEAR does not
 pass the submitting shell's environment into the job.

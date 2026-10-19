@@ -1,5 +1,0 @@
-name: cluster_lux
-remove_h: null
-datadir: 'data/cluster_lux/'
-# B: train Luxembourg -> test Minnesota (transfer, zero private training data)
-pairs_file: 'pairs_B_lux2minn_k7.pt'

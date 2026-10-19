@@ -1,8 +1,0 @@
-name: cluster_lux
-remove_h: null
-datadir: 'data/cluster_lux/'
-# B, no-hop ablation: condition truncated to [n, rho_in, k], input width 15.
-# Same splits and seed as pairs_B_lux2minn_k7k4.pt; only h1..h7 are dropped.
-# Training set is Luxembourg-only and unchanged, so reuse the transfer_B_nohop
-# checkpoint -- this is a re-sample, not a retrain.
-pairs_file: 'pairs_B_lux2minn_k7k4_nohop.pt'

@@ -14,7 +14,6 @@ randomised.
 |---|---|
 | `make_pair_blocks.py` | **Luxembourg pairs** (configuration A); writes the V2 condition (V1 + the out-degree profile r) |
 | `make_transfer_pairs.py` | **B and C datasets**: Oldenburg pairs, split 40/10/50, combined with the Luxembourg ones |
-| `make_pairs.py` | D_intra's original generator, kept for reference |
 
 ## Run
 

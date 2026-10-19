@@ -6,7 +6,7 @@ nothing else.
 
 Everything here is **generic conditional-generation machinery**. Nothing in this
 folder is specific to D_intra or D_inter; those live in their own folders and are
-copied into each experiment folder by `../sync.sh`, which is what makes
+copied into each experiment folder (formerly by `sync.sh`, now in archive/), which is what makes
 D_intra/ and D_inter/ self-contained, uploadable trees.
 
 ## `from src.*` and PYTHONPATH — resolved, but know the history
@@ -167,4 +167,4 @@ ssh USER@bluebear.bham.ac.uk "ls -d /rds/projects/c/chenhp-graphsyn/envs/digress
 Rebuilding it (torch + graph_tool + rdkit + lightning) is a multi-hour job.
 
 `src/analysis/orca/orca` must keep its executable bit. If it loses `+x` the run
-crashes at the very END, after training has finished. `sync.sh` re-applies it.
+crashes at the very END, after training has finished. Both projects carry the fix.

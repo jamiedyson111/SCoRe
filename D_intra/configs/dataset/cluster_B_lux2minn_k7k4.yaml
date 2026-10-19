@@ -1,8 +1,0 @@
-name: cluster_lux
-remove_h: null
-datadir: 'data/cluster_lux/'
-# B: train Luxembourg (k=7) -> test Minnesota coarsened at k=4.
-# Same training set as cluster_B_lux2minn_k7, so the MODEL is unchanged -- only
-# the test split differs. Sample from the existing transfer_B checkpoint rather
-# than retraining. 114 test supernodes, median size 12 against Luxembourg's 11.
-pairs_file: 'pairs_B_lux2minn_k7k4.pt'

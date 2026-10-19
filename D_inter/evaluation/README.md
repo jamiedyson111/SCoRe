@@ -8,7 +8,6 @@ Scores generated cross blocks B_ij against the real ones.
 | `pair_stats.py` | per-block statistics (`real_pair_stats`, `summarise`), shared by the main table; also the original distributional table (Table V) |
 | `evaluate_pairs.py` | condition fidelity of the original sampler's output (\|B_ij\| = w_ij) |
 | `check_context_integrity.py` | checks sampling left the given L_i, L_j untouched |
-| `legacy/` | an old copy of D_intra's evaluator, unused here |
 
 ## Main table
 

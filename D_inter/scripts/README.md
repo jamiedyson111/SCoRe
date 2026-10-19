@@ -14,7 +14,6 @@ SLURM job scripts. Submit from the project root,
 | `run_sample_pairs.sh` | the original sampler (random test conditions, with replacement) | `sbatch scripts/run_sample_pairs.sh /abs/epoch=179.ckpt` |
 | `run_evaluate_pairs.sh` | score the original sampler's output | `sbatch scripts/run_evaluate_pairs.sh` |
 | `setup.sh` | sourced by every job: modules, the `digress` env, orca permissions | -- |
-| `legacy/` | DiGress-era scripts, kept for reference | -- |
 
 Arguments, not environment variables: BlueBEAR does not pass the submitting
 shell's environment into the job.
