@@ -123,13 +123,25 @@ and `syn_table.tex`.
 
 ## Running another k
 
-The model does not fix k; a new k means new datasets and new training. Today:
+There is one k: the **k-MIS locality**, the same k as D_intra's (k = 7 at the
+moment). In D_inter it does two things:
 
-1. In `dataprep/make_pair_blocks.py`, set `K` at the top; it writes the V2 file.
-   Make the V1 file by keeping the first 6 condition columns (as
-   `make_transfer_pairs.py` does for B and C).
-2. Create `configs/dataset/pair_lux_kK.yaml` naming that file, and train with
-   `sbatch scripts/run_pair.sh pair_lux_kK pair_lux_kK`.
+1. **The coarsening.** k decides the supernodes, and so which pairs exist and how
+   large they are.
+2. **One entry of the condition.** c_ij = [n_i, rho_i, n_j, rho_j, w_ij, **k**].
+   k is a single number in the condition, beside the two sizes, the two densities
+   and the cross-edge count -- not the whole condition. D_inter has no hop
+   histogram, so its condition stays 6 entries at any k.
+
+Every dataset is built at one k, so within it the k entry is constant; a new k
+means new pair datasets and a newly trained model, with no code change. D_intra
+and D_inter must use the same k. For example, k = 5:
+
+1. In `dataprep/make_pair_blocks.py`, set `K = 5` at the top (that variable is
+   this k); it writes the V2 file. Make the V1 file by keeping the first 6
+   condition columns (as `make_transfer_pairs.py` does for B and C).
+2. Create `configs/dataset/pair_lux_k5.yaml` naming that file, and train with
+   `sbatch scripts/run_pair.sh pair_lux_k5 pair_lux_k5`.
 3. In `scripts/run_sample_pairs_transfer.sh`, configuration A's dataset is
-   `pair_lux`; change it to `pair_lux_kK`, and pass the new checkpoint as the
+   `pair_lux`; change it to `pair_lux_k5`, and pass the new checkpoint as the
    second argument: `sbatch scripts/run_sample_pairs_transfer.sh --repeats 5 A /abs/epoch=N.ckpt`.

@@ -107,12 +107,26 @@ it from there (stages 2-3, see `D_inter/README.md`).
 
 ## Running another k
 
-The models do not fix k: it is a condition column, and the hop histogram gets k
-bins, so a new k means new datasets and new training. Today:
+There is one k: the **k-MIS locality**, the minimum hop distance between two
+supernode centres (k = 7 everywhere at the moment). It enters D_intra in three
+places:
 
-1. `python make_transfer_datasets.py --k K` writes `pairs_*_lux2olde_kK.pt`.
-2. Create `configs/dataset/cluster_{A,B,C}_lux2olde_kK.yaml` (copy the k7 ones,
+1. **The coarsening.** k decides how the graph is cut into supernodes: a larger k
+   gives fewer, larger supernodes.
+2. **One entry of the condition.** c_i = [n, rho_in, **k**, h1 .. hk]. k is a
+   single number in the condition, beside n, rho_in and the hop histogram -- it is
+   not the whole condition.
+3. **The width of the hop histogram.** h has one bin per ring 1 .. k, so the
+   condition has 3 + k entries: 10 at k = 7, 8 at k = 5.
+
+Every dataset is built at one k, so within it the k entry is the same for every
+supernode. What changes between k values is the supernodes themselves and the
+number of hop bins, so a new k means new datasets and a newly trained model --
+the code needs no change. For example, k = 5:
+
+1. `python make_transfer_datasets.py --k 5` writes `pairs_{A,B,C}_lux2olde_k5.pt`.
+2. Create `configs/dataset/cluster_{A,B,C}_lux2olde_k5.yaml` (copy the `_k7` ones,
    change `pairs_file`).
 3. In `scripts/run_transfer.sh` and `scripts/run_sample_conditional.sh`, the
-   configuration → dataset mapping names `lux2olde_k7`; change it to `kK`.
-4. Score with `repeat_summary.py --tag lux2olde_kK`.
+   configuration → dataset mapping names `lux2olde_k7`; change it to `lux2olde_k5`.
+4. Score with `repeat_summary.py --tag lux2olde_k5`.
