@@ -1,0 +1,11 @@
+Metric	Real	BS1 (random)	BS2 (Chung-Lu)
+Cross edges (mean)	1.1384	1.1384 ± 0.0000	1.1384 ± 0.0000
+Cross edges (std)	0.4866	0.4866 ± 0.0000	0.4866 ± 0.0000
+Cross density (mean)	0.00677	0.00677 ± 0.00000	0.00677 ± 0.00000
+Cross density (std)	0.00419	0.00419 ± 0.00000	0.00419 ± 0.00000
+D_out (mean)	0.0722	0.0722 ± 0.0000	0.0722 ± 0.0000
+D_out (std)	0.2615	0.2607 ± 0.0006	0.2609 ± 0.0006
+Degree dist. vs real (W1)	0.00000	0.00033 ± 0.00012	0.00026 ± 0.00009
+Out-degree profile E_r	0.0000	0.0027 ± 0.0005	0.0029 ± 0.0004
+
+1091 held-out Luxembourg pairs; runs per configuration: A_BS1=5, A_BS2=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only

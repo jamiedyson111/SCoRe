@@ -7,11 +7,11 @@ logs/
 *.npz
 *.h5
 
-# Generated results and samples
-D_intra/results/samples/
-D_inter/results/samples/
-D_inter/private_inference/out/
-D_intra/private_inference/out/
+# Generated results and samples (tables in results/ are tracked)
+/results/samples/
+/results/private_inference/
+/results/competitors/
+/archive/
 
 # Vendored virtualenvs and caches
 **/.venv/

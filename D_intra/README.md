@@ -208,8 +208,8 @@ If a chained job fails, the ones behind it never run — they sit in
 ./make_tables.sh
 ```
 
-That runs all three tables over `results/samples/oldenburg/` and writes each to
-`results/tables/oldenburg/<name>.txt`, with its LaTeX block split out as
+That runs all three tables over `../results/samples/D_intra/oldenburg/` and writes each to
+`../results/D_intra/tables/oldenburg/<name>.txt`, with its LaTeX block split out as
 `<name>.tex`. The Minnesota samples and tables one level up are left as they
 were: supernode ids are reused across graphs, so a Minnesota samples file would
 match Oldenburg test records by id and be scored against the wrong clusters.
@@ -225,26 +225,42 @@ a partial set of results. `./make_tables.sh --list` prints the names;
 `./make_tables.sh intra_k7 ablation_A` runs just those. `../make_tables.sh` does
 this folder and D_inter together.
 
-**Repeated sampling (median / std).** Each table above is one random draw.
-To report sampling noise, re-sample every Oldenburg configuration 5 times from
-its existing checkpoint (no training; ~20 min a job) on BlueBEAR:
+**Repeated sampling (mean / std) and the hop error E_h.** Each table above is
+one random draw. To report sampling noise, re-sample each configuration 5 times
+from its checkpoint (no training; ~15 min a job) on BlueBEAR:
 
 ```bash
-bash scripts/run_olde_repeats.sh                  # B_nohop, B_v3, C_nohop, C_v3 x seeds 0..4
-bash scripts/run_olde_repeats.sh 5 A_nohop A_v3   # A, on Luxembourg (own sheet)
+bash scripts/run_olde_repeats.sh                            # B_nohop_centroid, B_v3, C_nohop_centroid, C_v3
+bash scripts/run_olde_repeats.sh 5 A_nohop_centroid A_v3    # A, on Luxembourg (own sheet)
 ```
 
+The comparison is **no hops vs v3, both with the centroid node type**
+(`*_nohop_centroid` = condition `[n, rho_in, k]`, X marks the centroid). The two
+then differ in h_i alone, and the hop error can be measured in both. The
+`*_nohop_centroid` models are trained once with `run_transfer.sh` (log line
+`8 2 15`).
+
 Copy each job's `conditional_samples_s<seed>.txt` to
-`results/samples/oldenburg/repeats/<CFG>_s<seed>.txt`, then:
+`../results/samples/D_intra/oldenburg/repeats/<CFG>_s<seed>.txt`, then:
 
 ```bash
 cd evaluation && conda activate kmis && python repeat_summary.py
 ```
 
-That writes `results/tables/oldenburg/repeats_summary.tsv` (one row per metric,
-a median and a std column per configuration) and `repeats_per_seed.tsv` (every
-run's value). Both are tab-separated, so they paste into Excel as cells. The std
-is across runs of ONE checkpoint, so it is sampling noise, not training noise.
+That writes `../results/D_intra/tables/oldenburg/repeats_summary.tsv` (one row per metric,
+a mean and a std column per configuration; `--stat median` for the median) and
+`repeats_per_seed.tsv` (every run's value). Both are tab-separated, so they
+paste into Excel as cells. The std is across runs of ONE checkpoint, so it is
+sampling noise, not training noise.
+
+The last row is the hop error
+
+    E_h = (1/N_test) sum_i sum_{r=1..K} | h^_i(r) - h_i(r) |
+
+with h^_i measured from the generated block's centroid (node 0) and h_i the
+target condition. It is blank for models that do not mark a centroid. The Real
+column measures the real blocks from their true centre and is 0 by
+construction, which `repeat_summary.py` checks on every run.
 
 Tables are a LOCAL step -- the samples come off BlueBEAR, the tables are built
 here. If you do want them on the cluster, the script works there unchanged:
@@ -257,8 +273,8 @@ comparison:
 
 ```bash
 cd evaluation && conda activate kmis
-python compare_transfer.py --a ../results/samples/A.txt \
-    --b ../results/samples/B.txt --c ../results/samples/C.txt --latex
+python compare_transfer.py --a ../../results/samples/D_intra/A.txt \
+    --b ../../results/samples/D_intra/B.txt --c ../../results/samples/D_intra/C.txt --latex
 ```
 
 ## Rebuilding after the k-MIS fix

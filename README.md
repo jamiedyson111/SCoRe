@@ -1,28 +1,33 @@
 # DP-Graph-syn — repository map
 
-Two models, one shared codebase.
+Two models, D_intra and D_inter, each a conditional DiGress, plus everything
+around them. Every folder below has its own README.
 
 ```
-DiGress_upload/     stock DiGress + the conditional-generation modifications.
-                    Shared. No experiment-specific anything.
-
 D_intra/            intra-cluster model: generate the inside of one supernode
-                    given c_i = [n, rho_in, k].
+                    given c_i = [n, rho_in, k, h1..h7]. Code and data only:
+                    k-MIS extraction, training, sampling, evaluation, private
+                    inference stages 0-1, the DiGress scaling test.
 
-D_inter/            inter-cluster model: the edges BETWEEN supernodes,
-                    conditioned on C_ij. Not started.
+D_inter/            inter-cluster model: the cross block B_ij between two
+                    supernodes, given c_ij = [n_i, rho_i, n_j, rho_j, w_ij, k]
+                    and both insides. Code and data only, plus private
+                    inference stages 2-3 (assembly, whole-graph table).
 
-DiGress/            pristine clone of cvignac/DiGress, plus local outputs/,
-                    results/ and generated_samples/. Reference only -- nothing
-                    is developed here.
+baselines/          BS1 (random) and BS2 (Chung-Lu) uncoarsening baselines.
+competitors/        ICLR [2] and HiGen [5] wrappers, their Luxembourg training
+                    regions, and Huiping's ER / SC_RG baselines (Baseline/).
+
+results/            everything produced: tables, samples, checkpoints, the
+                    release, competitor outputs. Scripts write here by default.
+archive/            old and stray files from the October clean-up (git-ignored).
 
 k-mis-pool/         K-MIS coarsening (Bacciu et al.). Source of the clusters.
-graph-coarsening/   Loukas coarsening. Baseline comparison.
-_upload/            build output of stage.sh. Disposable, rebuilt every run.
-_removed_from_DiGress/
-                    the modifications that used to live in DiGress/, kept as a
-                    safety copy. Everything in it is duplicated elsewhere.
-                    Safe to delete once you are happy.
+graph-coarsening/   Loukas coarsening library, for reference.
+
+make_graph.sh       one assembled synthetic graph, end to end (stages 0-3).
+make_tables.sh      every single-run results table.
+sync.sh             copy the shared code into both projects.
 ```
 
 ## Why the split

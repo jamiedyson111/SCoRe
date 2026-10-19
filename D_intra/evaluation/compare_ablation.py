@@ -3,8 +3,8 @@
 Run LOCALLY in the `kmis` env once both configurations have been sampled:
 
     python compare_ablation.py --cfg A \
-        --gen-full ../results/samples/A.txt \
-        --gen-abl  ../results/samples/A_nohop.txt --latex
+        --gen-full ../../results/samples/D_intra/A.txt \
+        --gen-abl  ../../results/samples/D_intra/A_nohop.txt --latex
 
 The two datasets are built from the same seed and carry identical splits, so
 every held-out supernode is scored by both models. That makes this a PAIRED

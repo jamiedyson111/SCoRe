@@ -23,7 +23,7 @@ L, R, TAG_L, TAG_R = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
 
 def load(name, tag):
-    gen = parse_generated(f"../results/samples/{name}.txt")
+    gen = parse_generated(f"../../results/samples/D_intra/{name}.txt")
     cfg = name.split("/")[-1].split("_")[0]
     blob = torch.load(f"../data/cluster_lux/raw/pairs_{cfg}_{tag}.pt")
     test = {int(r["sn"]): r for r in blob["splits"][2]}

@@ -1,0 +1,18 @@
+Metric	Real	B (no hops + centroid)	B v3 (hops + centroid)	C (no hops + centroid)	C v3 (hops + centroid)
+Edges (median)	15.0	15.0 ± 0.0	15.0 ± 0.0	15.4 ± 0.4	15.1 ± 0.2
+Edges (mean)	19.894	19.693 ± 0.065	19.488 ± 0.030	20.637 ± 0.147	19.961 ± 0.059
+Edges (std)	14.793	14.353 ± 0.148	14.365 ± 0.043	16.249 ± 0.321	14.794 ± 0.159
+Density (mean)	0.1685	0.1678 ± 0.0006	0.1663 ± 0.0007	0.1696 ± 0.0008	0.1691 ± 0.0008
+Density (std)	0.1178	0.1177 ± 0.0010	0.1176 ± 0.0021	0.1173 ± 0.0016	0.1198 ± 0.0027
+Degree (median)	2.0	2.0 ± 0.0	2.0 ± 0.0	2.0 ± 0.0	2.0 ± 0.0
+Degree (mean)	2.0319	2.0114 ± 0.0066	1.9904 ± 0.0031	2.1079 ± 0.0150	2.0388 ± 0.0060
+Degree (std)	0.7708	0.6540 ± 0.0046	0.6274 ± 0.0019	0.7487 ± 0.0139	0.7131 ± 0.0082
+Connected (%)	100.00	90.12 ± 2.81	95.00 ± 2.25	94.12 ± 1.51	94.12 ± 1.14
+Acyclic (%)	49.38	42.00 ± 2.81	53.62 ± 2.63	41.75 ± 4.54	43.38 ± 2.36
+Components (mean)	1.0000	1.1200 ± 0.0384	1.0513 ± 0.0248	1.0600 ± 0.0130	1.0663 ± 0.0130
+Edge-count MAE	0.0000	0.9163 ± 0.0899	0.7688 ± 0.0426	1.1738 ± 0.1417	0.7775 ± 0.0664
+Degree dist. vs real (W1)	0.0000	0.1763 ± 0.0043	0.1876 ± 0.0048	0.1118 ± 0.0101	0.1021 ± 0.0037
+Spectrum vs real	0.0000	0.0731 ± 0.0017	0.0733 ± 0.0007	0.0780 ± 0.0011	0.0749 ± 0.0006
+Hop error E_h	0.0000	0.3592 ± 0.0088	0.2963 ± 0.0108	0.3573 ± 0.0136	0.3087 ± 0.0140
+
+160 held-out Oldenburg supernodes; runs per configuration: B_nohop_centroid=5, B_v3=5, C_nohop_centroid=5, C_v3=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only; E_h is blank where the samples mark no centroid

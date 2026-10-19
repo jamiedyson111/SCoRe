@@ -135,19 +135,23 @@ def out_degree_hist(rows, n_i, n_bins=R_BINS):
     return np.bincount(np.clip(d, 0, n_bins - 1), minlength=n_bins) / n_i
 
 
-def main():
-    torch.manual_seed(SEED)
-    rng = np.random.default_rng(SEED)
+def extract_pair_records(adj, A, k, rng, min_n=MIN_N, max_combined=MAX_COMBINED,
+                         verbose=True):
+    """Coarsen at locality k and return (records, n dropped for size), one per pair.
 
-    adj, A = load_fine()
+    Every connected pair of supernodes with n >= min_n, oriented at random with
+    `rng` (one draw per pair, in coarse-COO order) and dropped when n_i + n_j >
+    max_combined. Shared with make_transfer_pairs.py, which runs it on Oldenburg;
+    main() passes the same rng it later shuffles the split with, so the Luxembourg
+    output is unchanged by the refactor.
+    """
     n = adj.size(0)
-    print(f"{NAME}: {n} nodes, {int(A.nnz / 2)} edges, k={K}")
-
     rank = orderings.Greedy()(adj.sum(dim=1), adj)
-    mis = sample.maximal_k_independent_set(adj, K, rank)
-    cluster = reduce.cluster_k_mis(mis, adj, K, rank).cpu().numpy()
+    mis = sample.maximal_k_independent_set(adj, k, rank)
+    cluster = reduce.cluster_k_mis(mis, adj, k, rank).cpu().numpy()
     c = int(cluster.max()) + 1
-    print(f"{c} supernodes")
+    if verbose:
+        print(f"{c} supernodes")
 
     # members of each supernode, as one contiguous sort
     order = np.argsort(cluster, kind='stable')
@@ -160,13 +164,14 @@ def main():
     members, rows, n_of, rho_of = {}, {}, {}, {}
     for ci in range(c):
         mem = order[starts[ci]:ends[ci]]
-        if len(mem) < MIN_N:
+        if len(mem) < min_n:
             continue
         members[ci] = mem
         rows[ci] = A[mem]                                  # (n_i, n) csr
         n_of[ci] = len(mem)
         rho_of[ci] = density(len(mem), int(rows[ci][:, mem].nnz / 2))
-    print(f"{len(members)} supernodes with n >= {MIN_N}")
+    if verbose:
+        print(f"{len(members)} supernodes with n >= {min_n}")
 
     # Coarse adjacency: P^T A P, entry (i,j) = number of edges between i and j.
     # One sparse product replaces a scan over all O(c^2) candidate pairs.
@@ -187,7 +192,7 @@ def main():
 
         mem_i, mem_j = members[ci], members[cj]
         n_i, n_j = n_of[ci], n_of[cj]
-        if n_i + n_j > MAX_COMBINED:
+        if n_i + n_j > max_combined:
             too_big += 1
             continue
 
@@ -201,7 +206,7 @@ def main():
         edge_index = torch.tensor(np.vstack([src, dst]), dtype=torch.long)
 
         r = out_degree_hist(B.row, n_i)
-        y_raw = torch.tensor([n_i, rho_of[ci], n_j, rho_of[cj], B.nnz, K, *r],
+        y_raw = torch.tensor([n_i, rho_of[ci], n_j, rho_of[cj], B.nnz, k, *r],
                              dtype=torch.float)
 
         recs.append({
@@ -212,6 +217,19 @@ def main():
             'r': torch.tensor(r, dtype=torch.float),
             'y_raw': y_raw,
         })
+
+    return recs, too_big
+
+
+def main():
+    torch.manual_seed(SEED)
+    rng = np.random.default_rng(SEED)
+
+    adj, A = load_fine()
+    n = adj.size(0)
+    print(f"{NAME}: {n} nodes, {int(A.nnz / 2)} edges, k={K}")
+
+    recs, too_big = extract_pair_records(adj, A, K, rng)
 
     if not recs:
         raise SystemExit("no connected pairs -- lower MIN_N or change K")

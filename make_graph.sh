@@ -86,15 +86,15 @@ PI_INTRA=$ROOT/D_intra/private_inference
 PI_INTER=$ROOT/D_inter/private_inference
 # Stages 1 and 2 both default to writing beside the release, so one directory
 # holds the whole chain and nothing is copied between the two projects.
-WORK=$PI_INTRA/out
+WORK=$ROOT/results/private_inference      # local; BlueBEAR keeps its own private_inference/out
 RWORK=$RROOT/D_intra/private_inference/out
 RELEASE=$WORK/release_${GRAPH}_k${K}.pt
 CLUSTERS=$WORK/clusters_${GRAPH}_k${K}.pt
 BLOCKS=$WORK/blocks_${GRAPH}_k${K}.pt
 if [ $REAL -eq 1 ]; then
-    OUT=$PI_INTER/out/selftest_${GRAPH}_k${K}
+    OUT=$WORK/selftest_${GRAPH}_k${K}
 else
-    OUT=$PI_INTER/out/syn_${GRAPH}_k${K}
+    OUT=$WORK/syn_${GRAPH}_k${K}
 fi
 
 step () { printf '\n=== %s ===\n' "$1"; }

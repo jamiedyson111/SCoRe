@@ -33,6 +33,8 @@ import argparse
 import numpy as np
 import networkx as nx
 import torch
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import shortest_path
 from scipy.stats import wasserstein_distance
 
 P_EIG = 10
@@ -67,6 +69,10 @@ def parse_generated(path):
 
         while i < len(lines) and not lines[i].strip().startswith("X"):
             i += 1
+        # The node-class row. With the centroid marked (v3, *_centroid) node 0 is
+        # class 1 and every other node class 0; with one node type it is all 0.
+        x = (np.fromstring(lines[i + 1], dtype=int, sep=" ")
+             if i + 1 < len(lines) else np.zeros(0, dtype=int))
         i += 2                                    # skip "X: " and the node-class row
         while i < len(lines) and not lines[i].strip().startswith("E"):
             i += 1
@@ -83,8 +89,31 @@ def parse_generated(path):
         A = (A == 1).astype(float)                # class 1 = edge
         A = np.maximum(A, A.T)
         np.fill_diagonal(A, 0.0)
-        out.append({"A": A, "n": n, "cond": cond, **meta})
+        out.append({"A": A, "n": n, "cond": cond, "x": x, **meta})
     return out
+
+
+def has_centroid(x):
+    """True when the node-class row marks node 0, and only node 0, as the centroid."""
+    return len(x) > 0 and x[0] == 1 and not x[1:].any()
+
+
+def hop_hist(A, centre, k):
+    """h(r), r = 1..k: fraction of the non-centre nodes at shortest-path distance r.
+
+    The definition extraction/kmis_pairs.hop_histogram uses for the condition,
+    computed here from a dense block without importing the torch_sparse stack.
+    Nodes further than k, or unreachable, fall in no ring, so a disconnected or
+    stretched block has sum(h) < 1 and that shortfall shows up in E_h.
+    """
+    n = A.shape[0]
+    h = np.zeros(k)
+    if n <= 1:
+        return h
+    d = shortest_path(csr_matrix(A), unweighted=True, directed=False, indices=centre)
+    for r in range(1, k + 1):
+        h[r - 1] = np.count_nonzero(d == r)
+    return h / (n - 1)
 
 
 def dense_adj(edge_index, n):

@@ -1,0 +1,11 @@
+Metric	Real	B (Lux -> Olde)	C (Lux+Olde -> Olde)	BS1 (random)	BS2 (Chung-Lu)
+Cross edges (mean)	1.5072	1.5022 ± 0.0257	1.2804 ± 0.0193	1.5072 ± 0.0000	1.5072 ± 0.0000
+Cross edges (std)	0.8334	0.9126 ± 0.0526	0.8017 ± 0.0466	0.8334 ± 0.0000	0.8334 ± 0.0000
+Cross density (mean)	0.00382	0.00381 ± 0.00005	0.00343 ± 0.00003	0.00382 ± 0.00000	0.00382 ± 0.00000
+Cross density (std)	0.00322	0.00328 ± 0.00006	0.00341 ± 0.00009	0.00322 ± 0.00000	0.00322 ± 0.00000
+D_out (mean)	0.0568	0.0566 ± 0.0010	0.0482 ± 0.0007	0.0568 ± 0.0000	0.0568 ± 0.0000
+D_out (std)	0.2390	0.2399 ± 0.0042	0.2237 ± 0.0035	0.2350 ± 0.0017	0.2361 ± 0.0018
+Degree dist. vs real (W1)	0.00000	0.00105 ± 0.00073	0.00887 ± 0.00063	0.00302 ± 0.00036	0.00278 ± 0.00049
+Out-degree profile E_r	0.0000	0.0164 ± 0.0013	0.0373 ± 0.0025	0.0089 ± 0.0034	0.0114 ± 0.0035
+
+276 held-out Oldenburg pairs; runs per configuration: B=5, C=5, BS1=5, BS2=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only

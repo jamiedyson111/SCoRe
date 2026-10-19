@@ -1,0 +1,7 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# C: train Luxembourg + Oldenburg (219 pairs x12, 24% of 10,804) -> test Oldenburg.
+# A new model: train with scripts/run_pair.sh pair_C_lux2olde_k7 pair_C_olde.
+# Validates on 54 Oldenburg pairs. Built by dataprep/make_transfer_pairs.py.
+pairs_file: 'pairs_inter_C_lux2olde_k7.pt'

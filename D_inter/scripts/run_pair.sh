@@ -69,11 +69,22 @@ cd "$ROOT/src"
 # ~1.1 edges in ~240 slots, so predicting "no edge" everywhere already scores a
 # low CE without having learned anything about WHERE the edges go.
 
-# V1 by default. For the 11-dim V2 condition:  DATASET=pair_lux_v2 sbatch <this>
-DATASET="${DATASET:-pair_lux}"
+# Dataset and run name are ARGUMENTS:
+#
+#   sbatch scripts/run_pair.sh                                   # pair_lux (V1) = A
+#   sbatch scripts/run_pair.sh pair_C_lux2olde_k7 pair_C_olde    # transfer C
+#   sbatch scripts/run_pair.sh pair_lux_v2                       # the V2 condition
+#
+# Not environment variables: BlueBEAR's job-submit plugin does not carry the
+# submitting shell's environment into the job, so `DATASET=... sbatch` silently
+# trained on the default. The env var is still read as a fallback for runs
+# launched some other way. NAME sets the run directory and checkpoint folder.
+DATASET="${1:-${DATASET:-pair_lux}}"
+NAME="${2:-pair_lux}"
+echo "dataset=$DATASET  name=$NAME"
 
 python3 main.py \
     dataset="$DATASET" \
     +experiment=pair_lux \
-    general.name=pair_lux \
+    general.name="$NAME" \
     general.wandb=disabled

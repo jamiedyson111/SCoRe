@@ -4,9 +4,9 @@ Emits one table with a column per configuration and a Real column, in the layout
 used for the D_inter cross-block table. Run LOCALLY in the `kmis` env:
 
     python make_intra_table.py --tag lux2olde_k7 \
-        --b ../results/samples/oldenburg/B.txt        --c ../results/samples/oldenburg/C.txt \
-        --b-nohop ../results/samples/oldenburg/B_nohop.txt \
-        --c-nohop ../results/samples/oldenburg/C_nohop.txt --latex
+        --b ../../results/samples/D_intra/oldenburg/B.txt        --c ../../results/samples/D_intra/oldenburg/C.txt \
+        --b-nohop ../../results/samples/D_intra/oldenburg/B_nohop.txt \
+        --c-nohop ../../results/samples/D_intra/oldenburg/C_nohop.txt --latex
 
 Every configuration passed must be scored on the SAME held-out supernodes, which
 is asserted rather than assumed: B and C share a test split by construction, and
@@ -80,6 +80,9 @@ def load_column(gen_path, pairs_path):
         "gen": [describe(g["A"]) for g, _ in pairs],
         "real": [describe(dense_adj(r["edge_index"], int(r["n"]))) for _, r in pairs],
         "blob": blob,
+        # (generated sample, test record) in supernode order, for metrics that
+        # need more than describe() keeps -- the hop error E_h in repeat_summary.
+        "pairs": pairs,
     }
 
 

@@ -1,0 +1,7 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# B: train Luxembourg -> test Oldenburg. Train/val and standardisation are the V1
+# pair_lux blob's, unchanged, so the existing pair_lux checkpoint IS this model.
+# Only the 276-pair Oldenburg test split is new. Built by dataprep/make_transfer_pairs.py.
+pairs_file: 'pairs_inter_B_lux2olde_k7.pt'

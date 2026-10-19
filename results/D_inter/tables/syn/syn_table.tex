@@ -1,0 +1,37 @@
+\begin{table}[H]
+\centering
+\caption{$\textbf{Reconstruction quality of the assembled synthetic graph}$
+$\widehat{G}$ $\textbf{ against the private graph }$ $G$ (Oldenburg, $k{=}7$).
+B uses D\_intra and D\_inter trained on Luxembourg only; C adds the Oldenburg
+training split to both. Each synthetic column is the mean $\pm$ std over 5
+independently sampled graphs (sampling noise; one trained model per column).
+BS1 and BS2 reproduce every released count exactly---$\rho_{\mathrm{in}}$
+per supernode and $w_{ij}$ per pair---so they differ from the synthetic columns
+only in \emph{where} the edges go: BS1 places them uniformly, BS2 with
+probability $\propto D_uD_v$ for expected degrees $D_u$ drawn from the public
+graph's degree distribution (Chung--Lu). Internal
+edges are D\_intra's, cross edges D\_inter's. GCC is the global clustering
+coefficient $3\tau_{\triangle}/\tau_{3}$; APL is the mean geodesic distance,
+computed exactly over all reachable pairs. Lower is better in the bottom block,
+where the Real column is $0$ by construction.}
+\label{tab:lsyn-oldenburg-k7}
+\begin{tabular}{lrrrrrr}
+\toprule
+ & B & C & DiGress & BS1 & BS2 & Real \\
+\midrule
+Nodes                         & 6105 $\pm$ 0 & 6105 $\pm$ 0 & OOM & 6105 $\pm$ 0 & 6105 $\pm$ 0 & 6105 \\
+Edges                         & 6833.8 $\pm$ 16.0 & 6946.2 $\pm$ 36.2 & OOM & 7029.0 $\pm$ 0.0 & 7029.0 $\pm$ 0.0 & 7029.0 \\
+\quad internal (D\_intra)     & 6060.8 $\pm$ 14.7 & 6231.8 $\pm$ 30.0 & OOM & 6227.0 $\pm$ 0.0 & 6227.0 $\pm$ 0.0 & 6227.0 \\
+\quad cross (D\_inter)        & 773.0 $\pm$ 5.9 & 714.4 $\pm$ 10.4 & OOM & 802.0 $\pm$ 0.0 & 802.0 $\pm$ 0.0 & 802.0 \\
+Mean degree                   & 2.239 $\pm$ 0.005 & 2.276 $\pm$ 0.012 & OOM & 2.303 $\pm$ 0.000 & 2.303 $\pm$ 0.000 & 2.303 \\
+Density                       & 0.000367 $\pm$ 0.000001 & 0.000373 $\pm$ 0.000002 & OOM & 0.000377 $\pm$ 0.000000 & 0.000377 $\pm$ 0.000000 & 0.000377 \\
+Components                    & 9.8 $\pm$ 4.0 & 11.2 $\pm$ 0.8 & OOM & 571.6 $\pm$ 15.7 & 627.6 $\pm$ 15.3 & 1.0 \\
+GCC                           & 0.0065 $\pm$ 0.0011 & 0.0087 $\pm$ 0.0016 & OOM & 0.0653 $\pm$ 0.0057 & 0.0721 $\pm$ 0.0032 & 0.0115 \\
+APL                           & 36.36 $\pm$ 1.21 & 33.50 $\pm$ 1.32 & OOM & 29.04 $\pm$ 1.05 & 27.02 $\pm$ 1.31 & 40.69 \\
+\midrule
+$RE_{GCC}$ $\downarrow$       & 0.4306 $\pm$ 0.0925 & 0.2396 $\pm$ 0.1432 & OOM & 4.6816 $\pm$ 0.4982 & 5.2756 $\pm$ 0.2806 & 0.0000 \\
+$\mathrm{deg}W$ $\downarrow$  & 0.1607 $\pm$ 0.0033 & 0.0961 $\pm$ 0.0100 & OOM & 0.5581 $\pm$ 0.0075 & 0.5979 $\pm$ 0.0081 & 0.0000 \\
+$RE_{APL}$ $\downarrow$       & 0.1065 $\pm$ 0.0297 & 0.1766 $\pm$ 0.0324 & OOM & 0.2864 $\pm$ 0.0257 & 0.3361 $\pm$ 0.0323 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}

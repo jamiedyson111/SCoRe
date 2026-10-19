@@ -12,7 +12,7 @@
 #
 #   A            NOTHING. A never sees the private graph: pairs_A_lux2olde_k7.pt
 #                is byte-identical to pairs_A_lux2minn_k7.pt, so the A samples
-#                already in results/samples/ are the Oldenburg A samples.
+#                already in ../results/samples/D_intra/ are the Oldenburg A samples.
 #   B, B_nohop   NO TRAINING. B trains and validates on Luxembourg alone, so the
 #                private graph changes B's TEST split and nothing else -- same
 #                training records, same standardisation statistics, same
@@ -72,17 +72,17 @@ cat <<EOF2
   check     grep -m1 "input features" \$(ls -t logs/transfer_*.out | head -1)
             -> "7 2 22" for C, "7 2 15" for C_nohop, "8 2 16" for C_v3
 
-Collect the samples into results/samples/oldenburg/, then build the tables
+Collect the samples into ../results/samples/D_intra/oldenburg/, then build the tables
 locally with ./make_tables.sh. A comes across unchanged; B and C are new:
 
-  mkdir -p results/samples/oldenburg
-  cp results/samples/A{,_nohop,_v3}.txt results/samples/oldenburg/
+  mkdir -p ../results/samples/D_intra/oldenburg
+  cp ../results/samples/D_intra/A{,_nohop,_v3}.txt ../results/samples/D_intra/oldenburg/
   for c in B B_nohop B_v3; do
       cp "\$(ls -t outputs/*/*transfer_\${c}_olde_sample*/conditional_samples.txt | head -1)" \\
-         "results/samples/oldenburg/\${c}.txt"
+         "../results/samples/D_intra/oldenburg/\${c}.txt"
   done
   for c in C C_nohop C_v3; do
       cp "\$(ls -t outputs/*/*transfer_\${c/#C/C_olde}_sample*/conditional_samples.txt | head -1)" \\
-         "results/samples/oldenburg/\${c}.txt"
+         "../results/samples/D_intra/oldenburg/\${c}.txt"
   done
 EOF2

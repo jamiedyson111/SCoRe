@@ -5,9 +5,9 @@
 #     ./make_tables.sh intra_k7           # just one, or several by name
 #     ./make_tables.sh --list             # what the names are
 #
-# Each table is printed and also written to results/tables/oldenburg/<name>.txt,
+# Each table is printed and also written to ../results/D_intra/tables/oldenburg/<name>.txt,
 # with its LaTeX block split out into <name>.tex ready to \input. Samples are
-# read from results/samples/oldenburg/ (run_olde_transfer.sh says how to fill
+# read from ../results/samples/D_intra/oldenburg/ (run_olde_transfer.sh says how to fill
 # it). The Minnesota tables and samples one level up are left as they were:
 # supernode ids are reused across graphs, so a Minnesota samples file would
 # match Oldenburg test records by id and be scored against the wrong clusters.
@@ -20,9 +20,9 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-SAMPLES=$ROOT/results/samples/oldenburg
+SAMPLES=$ROOT/../results/samples/D_intra/oldenburg
 PAIRS_DIR=$ROOT/data/cluster_lux/raw
-OUT=$ROOT/results/tables/oldenburg
+OUT=$ROOT/../results/D_intra/tables/oldenburg
 TAG=lux2olde_k7
 
 ALL="intra_k7 transfer_k7 ablation_A"
@@ -107,15 +107,15 @@ table () {  # table <name> <description> <command...>
     # Every script prints its LaTeX last, behind a '% ---- LaTeX' banner.
     awk '/^% ---- LaTeX/{f=1} f' "$OUT/$name.txt" > "$OUT/$name.tex"
     [ -s "$OUT/$name.tex" ] || rm -f "$OUT/$name.tex"
-    printf '   -> results/tables/oldenburg/%s.txt%s\n' "$name" \
-        "$([ -f "$OUT/$name.tex" ] && echo ", results/tables/oldenburg/$name.tex")"
+    printf '   -> ../results/D_intra/tables/oldenburg/%s.txt%s\n' "$name" \
+        "$([ -f "$OUT/$name.tex" ] && echo ", ../results/D_intra/tables/oldenburg/$name.tex")"
 }
 
 run_section () {
 case $1 in
 intra_k7)
     have B.txt B_nohop.txt C.txt C_nohop.txt \
-        || { skip intra_k7 "results/samples/oldenburg/{B,C}{,_nohop}.txt"; return; }
+        || { skip intra_k7 "../results/samples/D_intra/oldenburg/{B,C}{,_nohop}.txt"; return; }
     table intra_k7 "$DESC_intra_k7" \
         python make_intra_table.py --tag $TAG --pairs-dir "$PAIRS_DIR" \
             --b "$SAMPLES/B.txt"             --b-nohop "$SAMPLES/B_nohop.txt" \
@@ -123,7 +123,7 @@ intra_k7)
             --latex ;;
 transfer_k7)
     have A.txt B.txt C.txt \
-        || { skip transfer_k7 "results/samples/oldenburg/{A,B,C}.txt"; return; }
+        || { skip transfer_k7 "../results/samples/D_intra/oldenburg/{A,B,C}.txt"; return; }
     table transfer_k7 "$DESC_transfer_k7" \
         python compare_transfer.py --tag $TAG --pairs-dir "$PAIRS_DIR" \
             --a "$SAMPLES/A.txt" --b "$SAMPLES/B.txt" --c "$SAMPLES/C.txt" \
@@ -132,7 +132,7 @@ ablation_A)
     # A, not B/C: 882 held-out supernodes against 160, and the ablation needs the
     # power. See the module docstring of compare_ablation.py.
     have A.txt A_nohop.txt \
-        || { skip ablation_A "results/samples/oldenburg/A{,_nohop}.txt"; return; }
+        || { skip ablation_A "../results/samples/D_intra/oldenburg/A{,_nohop}.txt"; return; }
     table ablation_A "$DESC_ablation_A" \
         python compare_ablation.py --cfg A --tag $TAG \
             --pairs-dir "$PAIRS_DIR" \

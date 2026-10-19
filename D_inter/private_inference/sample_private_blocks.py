@@ -24,6 +24,13 @@ stage 1's checkpoint. The file is read like any other clusters file; nothing fro
 the extraction stack (h5py, torch_sparse) is imported, since the GPU environment
 does not have it.
 
+REPEATS. +clusters_tag=ICFG +tag=NAME +repeats=N runs seeds +seed .. +seed+N-1
+(default 0..N-1) from one loaded checkpoint. Seed s reads stage 1's
+clusters_<graph>_k<k>_<ICFG>_s<s>.pt from beside the release and writes
+blocks_<graph>_k<k>_<NAME>_s<s>.pt there, so each repeat is a whole synthetic
+graph, internal and cross blocks sampled together.
+run_private_blocks_repeats.sh sets these.
+
 WHAT IS OBSERVED AND WHAT IS GENERATED. The model is given the two internal
 blocks and the sides, and produces only the cross block. sample_batch re-imposes
 the observed part after every reverse step, so L_i and L_j come back bit-identical
@@ -54,6 +61,7 @@ import graph_tool as gt   # noqa: F401  MUST BE FIRST -- see below
 # src/main.py opens with the same import for the same reason.
 import os
 import pathlib
+import random
 import sys
 import warnings
 
@@ -125,23 +133,28 @@ def main(cfg: DictConfig):
 
     release = _load(cfg.release)
 
-    assert cfg.get('clusters'), "pass +clusters=/abs/path/to/clusters_<graph>_k<k>.pt"
-    blob_c = _load(cfg.clusters)
-    assert blob_c['graph'] == release['graph'] and blob_c['k'] == release['k'], (
-        f"clusters are for {blob_c['graph']} k={blob_c['k']} but the release is "
-        f"{release['graph']} k={release['k']}")
-    internal = {int(sn): v['edge_index'] for sn, v in blob_c['clusters'].items()}
-
-    # The validation run passes clusters_<graph>_k<k>_true.pt, the real internal
-    # blocks written by stage 0. Reading them from a file rather than rebuilding
-    # them here keeps the extraction stack -- h5py, torch_sparse -- out of the
-    # GPU environment, which does not have it.
-    real_context = blob_c.get('checkpoint') is None
-    if real_context:
-        print("USING THE PRIVATE GRAPH'S REAL INTERNAL BLOCKS (validation mode)")
-
-    out_path = cfg.get('out') or os.path.join(
-        os.path.dirname(cfg.release), f"blocks_{release['graph']}_k{release['k']}.pt")
+    # One (seed, clusters file, output file) per run. With +clusters_tag the
+    # context is stage 1's repeated output, seed for seed: run s places its
+    # cross blocks between the internal blocks of clusters_..._<TAG>_s<s>.pt.
+    repeats = int(cfg.get('repeats', 1))
+    seed0 = int(cfg.get('seed', 0))
+    rdir = os.path.dirname(os.path.abspath(cfg.release))
+    gk = f"{release['graph']}_k{release['k']}"
+    if cfg.get('clusters_tag'):
+        assert cfg.get('tag'), "+clusters_tag needs +tag, which names the output files"
+        jobs = [(seed0 + r,
+                 os.path.join(rdir, f"clusters_{gk}_{cfg.clusters_tag}_s{seed0 + r}.pt"),
+                 os.path.join(rdir, f"blocks_{gk}_{cfg.tag}_s{seed0 + r}.pt"))
+                for r in range(repeats)]
+    else:
+        assert cfg.get('clusters'), ("pass +clusters=/abs/path/to/clusters_<graph>_k<k>.pt, "
+                                     "or +clusters_tag=CFG +tag=NAME for repeats")
+        assert repeats == 1, "+repeats needs +clusters_tag"
+        jobs = [(seed0, cfg.clusters,
+                 cfg.get('out') or os.path.join(rdir, f"blocks_{gk}.pt"))]
+    for _, cpath, _ in jobs:
+        if not os.path.isfile(cpath):
+            raise SystemExit(f"clusters file not found: {cpath}")
 
     datamodule = PairGraphDataModule(cfg)
     dataset_infos = PairDatasetInfos(datamodule, cfg.dataset)
@@ -219,11 +232,13 @@ def main(cfg: DictConfig):
     # a batch is far past any sensible wall clock, and a few hundred pairs already
     # pins the fidelity rate to well under a percentage point. Never use this for a
     # run you intend to assemble: the omitted pairs become empty blocks in L^syn.
-    limit = cfg.get('limit')
-    if limit and int(limit) < len(release['pairs']):
+    # (Until 2026-10-12 this subsampled release['pairs'] AFTER `pairs` had been
+    # built from it, so it printed the warning and then generated every pair.)
+    limit = int(cfg.get('limit') or 0)
+    if limit and limit < len(pairs):
         idx = np.random.default_rng(int(cfg.get('limit_seed', 0))).choice(
-            len(release['pairs']), int(limit), replace=False)
-        release = dict(release, pairs=[release['pairs'][int(i)] for i in idx])
+            len(pairs), limit, replace=False)
+        pairs = [pairs[int(i)] for i in idx]
         print(f"LIMIT: scoring a random {limit} of the connected pairs. "
               f"This output is for validation only -- do not assemble it.")
 
@@ -248,24 +263,67 @@ def main(cfg: DictConfig):
     # Sort by combined size so each batch pads close to its own maximum.
     pairs = sorted(pairs, key=lambda p: p['n_i'] + p['n_j'])
 
+    for seed, cpath, out_path in jobs:
+        blob_c = _load(cpath)
+        assert blob_c['graph'] == release['graph'] and blob_c['k'] == release['k'], (
+            f"clusters are for {blob_c['graph']} k={blob_c['k']} but the release is "
+            f"{release['graph']} k={release['k']}")
+        internal = {int(sn): v['edge_index'] for sn, v in blob_c['clusters'].items()}
+        # The validation run passes clusters_<graph>_k<k>_true.pt, the real internal
+        # blocks written by stage 0. Reading them from a file rather than rebuilding
+        # them here keeps the extraction stack -- h5py, torch_sparse -- out of the
+        # GPU environment, which does not have it.
+        real_context = blob_c.get('checkpoint') is None
+        print(f"\nseed {seed}: context {cpath}")
+        if real_context:
+            print("USING THE PRIVATE GRAPH'S REAL INTERNAL BLOCKS (validation mode)")
+
+        seed_all(seed)
+        out, exact = sample_pairs(model, pairs, internal, rho_of, blob, k_feat, device)
+
+        result = {
+            'graph': release['graph'], 'k': release['k'],
+            'checkpoint': str(cfg.general.test_only),
+            'dataset': str(cfg.dataset.pairs_file),
+            'clusters': str(cpath), 'tag': cfg.get('tag'), 'seed': seed,
+            'real_context': real_context,
+            'limit': limit or None,
+            'blocks': out,
+        }
+        torch.save(result, out_path)
+
+        gen_w = sum(v['edge_index'].shape[1] for v in out.values())
+        req_w = sum(p['w'] for p in pairs)
+        print(f"  condition fidelity: {exact}/{len(pairs)} blocks have |B_ij| exactly "
+              f"w_ij ({100.0 * exact / max(len(pairs), 1):.1f}%)")
+        print(f"  cross edges: generated {gen_w}, requested {req_w}")
+        print(f"wrote {out_path}")
+
+
+def seed_all(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+def sample_pairs(model, pairs, internal, rho_of, blob, k_feat, device):
+    """One cross block per pair, around the given internal blocks."""
     out, exact, done = {}, 0, 0
     with torch.no_grad():
         for start in range(0, len(pairs), BATCH):
             chunk = pairs[start:start + BATCH]
-
             y_raw = torch.stack([
                 torch.cat([torch.tensor([float(p['n_i']), rho_of[p['sn_i']],
                                          float(p['n_j']), rho_of[p['sn_j']],
                                          float(p['w']), k_feat]),
                            p['r']]) for p in chunk])
             cond_y = ((y_raw - blob['cond_mean']) / blob['cond_std']).float().to(device)
-
             given, n_nodes = build_given(chunk, internal, device)
             samples = model.sample_batch(batch_id=start, batch_size=len(chunk),
                                          keep_chain=0, number_chain_steps=1,
                                          save_final=0, num_nodes=n_nodes,
                                          cond_y=cond_y, given=given)
-
             for p, (side, edge_types) in zip(chunk, samples):
                 vi = torch.nonzero(side == 0, as_tuple=True)[0]
                 vj = torch.nonzero(side == 1, as_tuple=True)[0]
@@ -278,21 +336,7 @@ def main(cfg: DictConfig):
                 exact += int(int(B.sum()) == p['w'])
             done += len(chunk)
             print(f"  {done}/{len(pairs)}", flush=True)
-
-    result = {
-        'graph': release['graph'], 'k': release['k'],
-        'checkpoint': str(cfg.general.test_only),
-        'real_context': real_context,
-        'blocks': out,
-    }
-    torch.save(result, out_path)
-
-    gen_w = sum(v['edge_index'].shape[1] for v in out.values())
-    req_w = sum(p['w'] for p in pairs)
-    print(f"\n  condition fidelity: {exact}/{len(pairs)} blocks have |B_ij| exactly "
-          f"w_ij ({100.0 * exact / max(len(pairs), 1):.1f}%)")
-    print(f"  cross edges: generated {gen_w}, requested {req_w}")
-    print(f"wrote {out_path}")
+    return out, exact
 
 
 if __name__ == '__main__':

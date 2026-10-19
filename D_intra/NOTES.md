@@ -268,8 +268,8 @@ cd ..          && ./sync.sh D_intra                     # shared code into this 
 rsync -avz D_intra/ dysonjz@bluebear.bham.ac.uk:/rds/projects/c/chenhp-graphsyn/D_intra/
 sbatch scripts/run_transfer.sh A                                # on BlueBEAR
 
-cd evaluation  && python compare_transfer.py --a ../results/samples/A.txt \
-                    --b ../results/samples/B.txt --c ../results/samples/C.txt --latex
+cd evaluation  && python compare_transfer.py --a ../../samples/D_intra/A.txt \
+                    --b ../../samples/D_intra/B.txt --c ../../samples/D_intra/C.txt --latex
 ```
 
 This folder is self-contained and uploads as-is. The shared model code still has

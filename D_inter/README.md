@@ -77,10 +77,10 @@ then `outputs/*/*/`):
 ./make_tables.sh
 ```
 
-Output lands in `results/tables/`: `pair_stats.txt` (the structural table against
+Output lands in `../results/D_inter/tables/`: `pair_stats.txt` (the structural table against
 real, with the uniform and zero baselines beside it), `degree_w1.txt` (the
 out-degree metric alone with its three reference points), and, under
-`results/tables/pair_stats/`, the LaTeX, the per-pair CSVs and the plots.
+`../results/D_inter/tables/pair_stats/`, the LaTeX, the per-pair CSVs and the plots.
 
 `./make_tables.sh --list` prints the table names, `./make_tables.sh pair_stats`
 runs one, and a path argument scores a specific file:
@@ -105,6 +105,46 @@ here. If you do want them on the cluster, the script works there unchanged:
 there is no `kmis` env on BlueBEAR and none is needed, since these scripts import
 only numpy/scipy/networkx/torch, so it falls back to sourcing `setup.sh` and runs
 in `digress`, giving identical numbers.
+
+## Transfer: configurations A / B / C (Luxembourg → Oldenburg)
+
+Mirrors D_intra's study.
+
+| | Train | Test | Model |
+|---|---|---|---|
+| A | Luxembourg | Luxembourg (1091 pairs) | the existing V1 `pair_lux` checkpoint (epoch=179) |
+| B | Luxembourg | Oldenburg (276 pairs) | **the same checkpoint** — B's train/val data is pair_lux's |
+| C | Luxembourg + Oldenburg (219 pairs ×12, 24%) | Oldenburg (same 276) | new: `pair_C_olde` |
+
+Oldenburg k=7 gives 549 connected pairs (3 dropped above `MAX_COMBINED`), split
+0.40 / 0.10 / 0.50 as in D_intra. Condition is V1 throughout.
+
+```bash
+cd dataprep && conda activate kmis && python make_transfer_pairs.py   # writes pairs_inter_{B,C}_lux2olde_k7.pt
+```
+
+On BlueBEAR (dataset and name are arguments — BlueBEAR drops env vars):
+
+```bash
+sbatch scripts/run_pair.sh pair_C_lux2olde_k7 pair_C_olde      # train C, ~7-8 h
+bash scripts/run_pairs_repeats.sh 5 B                           # sample B now, ~1 h
+bash scripts/run_pairs_repeats.sh 5 A                           # optional, ~2-3 h
+bash scripts/run_pairs_repeats.sh 5 C                           # after C trains, ~1 h
+```
+
+`src/sample_pairs_conditional.py` generates one cross block per test pair (real
+L_i, L_j as context, the pair's own condition), `+repeats=N` seeds 0..N-1. Copy
+each `pair_samples_s<seed>.pt` to `../results/samples/D_inter/transfer/<CFG>_s<seed>.pt`, then
+
+```bash
+cd evaluation && python transfer_summary.py            # B and C -> ../results/D_inter/tables/transfer/pairs_summary.tsv
+cd evaluation && python transfer_summary.py --configs A
+```
+
+Eight rows, mean ± std across seeds: cross edges mean/std, cross density
+mean/std, D_out mean/std, degree W1 (`pair_stats.py`'s pooled cross-degree), and
+E_r = 1/N_test Σ_i Σ_d |r̂_i(d) − r_i(d)|, the out-degree-profile analogue of
+D_intra's E_h (r as in `make_pair_blocks.py`, d = 0..3, ≥4).
 
 ## Reading the numbers
 

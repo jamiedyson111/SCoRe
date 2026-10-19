@@ -378,7 +378,8 @@ def main():
                          'all-pairs (>5000 nodes); ignored when it is not')
     ap.add_argument('--no-baseline', action='store_true',
                     help='skip the random-from-release column (halves the runtime)')
-    ap.add_argument('--out-dir', default='out/syn')
+    ap.add_argument('--out-dir', default=os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                   '..', '..', 'results', 'private_inference', 'syn'))
     args = ap.parse_args()
 
     release = _load(args.release)

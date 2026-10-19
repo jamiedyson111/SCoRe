@@ -9,7 +9,7 @@
 # With no samples file given, the newest generated_samples*.txt is used, looked
 # for in the project root and then under outputs/*/*/.
 #
-# Each table is printed and also written under results/tables/. pair_stats
+# Each table is printed and also written under ../results/D_inter/tables/. pair_stats
 # additionally leaves its LaTeX, per-pair CSVs and plots there.
 #
 # The `kmis` env is activated here -- do NOT conda activate first. Override the
@@ -22,7 +22,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-OUT=$ROOT/results/tables
+OUT=$ROOT/../results/D_inter/tables
 PAIRS=${PAIRS:-$ROOT/data/pair_lux/raw/pairs_inter_luxembourg_osm_k7.pt}
 SPLIT=${SPLIT:-test}
 
@@ -119,7 +119,7 @@ table () {  # table <name> <description> <command...>
         "$name" "$desc" \
         "=================================================================="
     ( cd "$ROOT" && "$@" ) | tee "$OUT/$name.txt"
-    printf '   -> results/tables/%s.txt\n' "$name"
+    printf '   -> ../results/D_inter/tables/%s.txt\n' "$name"
 }
 
 run_section () {
@@ -143,7 +143,7 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot" 2>/dev/null 
     table pair_stats "$DESC_pair_stats" \
         python evaluation/pair_stats.py --generated "$GEN" --pairs "$PAIRS" \
             --split "$SPLIT" --out-dir "$OUT/pair_stats" "${plots[@]+"${plots[@]}"}"
-    printf '   -> results/tables/pair_stats/{stats_table.tex,stats_table_simple.tex,*.csv}\n' ;;
+    printf '   -> ../results/D_inter/tables/pair_stats/{stats_table.tex,stats_table_simple.tex,*.csv}\n' ;;
 degree_w1)
     table degree_w1 "$DESC_degree_w1" \
         python evaluation/evaluate_pairs.py --generated "$GEN" --pairs "$PAIRS" \

@@ -5,7 +5,7 @@ the optional CSV and plot output):
 
     python pair_stats.py --generated generated_samples1.txt \
                          --pairs data/pair_lux/raw/pairs_inter_luxembourg_osm_k7.pt \
-                         --split test --out-dir results/pair_stats --plots
+                         --split test --out-dir ../results/D_inter/tables/pair_stats --plots
 
 Reports four things.
 
@@ -201,7 +201,7 @@ def main():
     ap.add_argument('--generated', required=True)
     ap.add_argument('--pairs', required=True)
     ap.add_argument('--split', default='test', choices=['val', 'test'])
-    ap.add_argument('--out-dir', default='results/pair_stats')
+    ap.add_argument('--out-dir', default='../results/D_inter/tables/pair_stats')
     ap.add_argument('--plots', action='store_true')
     args = ap.parse_args()
 

@@ -102,6 +102,8 @@ echo "configuration $CFG  ->  dataset=$DATASET  name=$NAME  ${V3[*]:-}"
 #   _centroid   8 2 22    X gains the centroid class (2 classes + 6 extra)
 #   _hopmlp     7 2 16    h1..h7 become one embedded number: 4 + 1 + 11
 #   _v3         8 2 16
+#   *_nohop_centroid  8 2 15   no-hop condition, centroid marked: the
+#                              baseline that differs from _v3 in h_i alone
 #
 # Also expect the edge marginal:
 #   A, B   [0.8768, 0.1232]     Luxembourg train

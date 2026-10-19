@@ -93,7 +93,7 @@ def main():
                     help='coarsening scale; must match the trained models')
     ap.add_argument('--seed', type=int, default=0,
                     help='orientation randomisation only; the coarsening is deterministic')
-    ap.add_argument('--out-dir', default=str(HERE / 'out'))
+    ap.add_argument('--out-dir', default=str(HERE.parent.parent / 'results' / 'private_inference'))
     args = ap.parse_args()
     # A histogram narrower than the coarsening scale would truncate rings that
     # can legitimately be occupied; the reverse is safe and is the whole point.

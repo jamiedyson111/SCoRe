@@ -17,7 +17,7 @@ from evaluate_clusters import (agg, dense_adj, describe, dist_to_real,  # noqa: 
 RNG = np.random.default_rng(0)
 B_BOOT = 4000
 TAG = "lux2olde_k7"
-SAMPLES = "../results/samples/oldenburg"
+SAMPLES = "../../results/samples/D_intra/oldenburg"
 
 
 def load(cfg):

@@ -1,0 +1,36 @@
+# @package _global_
+# ICLR [2] on Luxembourg regions (competitors/make_lux_regions.py). Copied into
+# the repo's config/experiment/ by setup_bluebear.sh. Modelled on point_cloud.yaml,
+# the paper's experiment with graphs of comparable size (up to ~5000 nodes):
+# continuous EDM diffusion, 2 spectral features, batch 8.
+defaults:
+  - override /dataset: file
+  - override /diffusion: edm
+  - _self_
+
+name: lux_regions
+
+dataset:
+  name: lux_regions
+
+training:
+  batch_size: 8
+  num_steps: 200_000      # the repo trains open-ended; this is the stopping point
+  log_interval: 500
+  checkpoint_interval: 5_000   # apply_patch.py: ~1 h apart, so a 12 h job always saves
+
+# The repo's own validation is OFF. It was the only place checkpoints were saved,
+# and at these graph sizes one round ran for over six hours (2026-10-13). Our
+# scoring is syn_repeats_summary.py against Oldenburg, not these metrics.
+validation:
+  batch_size: 4
+  interval: 0
+  first_step: 0
+
+skip_metrics: false       # apply_patch.py; run_sample.sh sets it true
+
+spectral:
+  num_features: 2
+
+wandb:
+  logging: False
