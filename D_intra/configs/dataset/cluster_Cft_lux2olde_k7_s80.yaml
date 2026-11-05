@@ -1,0 +1,6 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C as a FINE-TUNE: A's model trained further on the 254 Oldenburg train supernodes -> test Oldenburg.
+# A's condition standardisation and edge marginal are kept (extraction/make_finetune_datasets.py).
+pairs_file: 'pairs_Cft_lux2olde_k7_s80.pt'

@@ -8,7 +8,7 @@ Luxembourg + Oldenburg → test Oldenburg), each optionally `_nohop`, and suffix
 
 | script | what | example |
 |---|---|---|
-| `run_transfer.sh` | **train** one configuration (200 epochs), then sample its test split | `sbatch scripts/run_transfer.sh B_v3` |
+| `run_transfer.sh` | **train** one model (200 epochs), then sample its test split | `sbatch scripts/run_transfer.sh A_v3` |
 | `run_all_transfer.sh` | train several configurations as a chain, each after the previous succeeds | `bash scripts/run_all_transfer.sh A_v3 B_v3 C_v3` |
 | `run_olde_transfer.sh` | everything for the Oldenburg transfer tables (train C, resample A/B) | `bash scripts/run_olde_transfer.sh _v3` |
 | `run_sample_conditional.sh` | **sample** a trained configuration's test split, N seeds | `sbatch scripts/run_sample_conditional.sh --repeats 5 B_v3` |
@@ -24,8 +24,10 @@ Each job writes a hydra run directory, `outputs/<date>/<time>-<name>/`:
 checkpoints under `checkpoints/<name>/epoch=N.ckpt`, and samples as
 `conditional_samples.txt` (one run) or `conditional_samples_s0.txt … _s4.txt`
 (`--repeats 5`, in a directory ending `_x5`). Copy repeated samples to the local
-`results/samples/D_intra/oldenburg/repeats/<CFG>_s<seed>.txt` and score them with
+`results/samples/D_intra/s80/<CFG>_s<seed>.txt` and score them with
 `evaluation/repeat_summary.py`.
 
-The checkpoint used for a configuration is the newest run directory of that name,
-and the oldest surviving top-5 checkpoint in it.
+The model used for a configuration is the newest run directory of that name, at
+its final checkpoint (`last.ckpt`): there is no validation split, so training runs
+a fixed 200 epochs. Run names end `_s80`. B is never trained -- it uses A's
+model (`transfer_A*_s80`), whose training data is B's.

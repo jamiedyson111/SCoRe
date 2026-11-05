@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# The no-r ablation of B on Vermont: A-no-r's model, c_ij = [n_i, n_j, w_ij].
+pairs_file: 'pairs_inter_B_lux2verm_k7_s80_deg_nor.pt'

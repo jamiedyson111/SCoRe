@@ -7,8 +7,14 @@ For each PAIR of supernodes (c_i, c_j) of a K-MIS coarsening that has at least
 one edge between them:
 
     target    B_ij, the cross-subgraph adjacency block  |V_i| x |V_j|
-    context   L_i, L_j, the two internal adjacency matrices (given, never noised)
-    condition c_ij = [n_i, rho_i, n_j, rho_j, w_ij, k, r_{i->j}]        (V2)
+    context   X_i, X_j, each node's normalised internal degree d_in(v) / (n_i - 1),
+              computed from L_i, L_j by the dataset class (src/datasets/pair_dataset.py)
+    condition c_ij = [n_i, n_j, w_ij, r_{i->j}, r_{j->i}]               (13 dims)
+
+CONDITION (November 2026, the paper's Section B). r_{i->j} is described below;
+r_{j->i} is the same profile from the other side, the fraction of V_j nodes with
+d edges into V_i. n_i, n_j and w_ij are standardised on the training pairs, the r
+blocks are proportions and stay raw. rho and k are no longer part of c_ij.
 
 CONDITION V2. r_{i->j} = [r_0, r_1, r_2, r_3, r_{>=4}] is the out-degree profile
 of the block: r_d is the fraction of nodes of V_i with exactly d edges into V_j,
@@ -33,7 +39,9 @@ so an entry of H is a cross entry precisely when its two endpoints lie on
 different sides. The dataset class turns that ordering into a 2-class node
 feature, and the model derives the cross-block mask from it. Nothing downstream
 needs to know how the nodes were numbered here -- only that the side is carried
-in X.
+in X. The records keep the whole H, internal edges included: the dataset class
+reduces L_i to the degree feature X_i and gives the model only the cross edges,
+while the evaluation scripts and the baselines read the real blocks from here.
 
 ORIENTATION. Which supernode of a pair takes the i slot is randomised. It must
 be: k-MIS numbers supernodes by centroid rank, which is degree-ordered, so a
@@ -41,7 +49,14 @@ naive i<j convention makes the lower id systematically the LARGER cluster
 (measured: mean n_i 16.85 vs n_j 13.91). The model would learn that skew, and it
 is an artefact of the numbering, not of the graph.
 
-SPLITTING. By pair, not by supernode -- see SPLIT_BY below.
+SPLITTING (October 2026). Train / test only, decided by SUPERNODE and shared with
+D_intra: D_intra's make_transfer_datasets.py writes the supernode split to
+D_intra/data/splits/<graph>_k<k>_s80.json and this reads it. A pair is a
+TRAINING pair only if both its supernodes are training supernodes; every pair
+that touches a test supernode is a TEST pair, so no test cross block is ever
+trained on and D_inter trains on exactly D_intra's training supernodes. There is
+no validation split; the "val" slot holds a sample of training pairs (logging
+only).
 """
 import os
 import pathlib
@@ -60,32 +75,27 @@ MIN_N = 3              # discard supernodes smaller than this
 MAX_COMBINED = 128     # discard pairs with n_i + n_j above this -- E is dense,
                        # so cost is quadratic in the combined size
 SEED = 0
-SPLIT = (0.75, 0.15, 0.10)      # train / val / test
+SPLIT_TAG = "s80"               # the shared 80/20 supernode split (D_intra/data/splits/)
+VAL_FROM_TRAIN = 256            # training pairs in the "val" slot, logging only
 
-# 'pair'      -- split the list of PAIRS. Recommended.
-# 'supernode' -- disjoint supernodes between splits; strictly cleaner, but a
-#                split holding fraction p of supernodes keeps only ~p^2 of
-#                pairs, so most of the data is thrown away (measured: 4470 of
-#                10902 discarded). The fractions below are square-rooted to
-#                compensate. The model never sees supernode identity and is
-#                permutation-equivariant, so there is no index along which it
-#                could memorise across a pair-level split.
-SPLIT_BY = "pair"
 
 # where the K-MIS code and the raw graph live
 EXTRACTION = "/home/jamie/Projects/Placement/k-mis-pool"
 
-# _v2 for the V2 condition. The name MUST change when the condition changes:
-# PairGraphDataset derives its processed_file_names from this, so reusing the
-# name loads the stale 6-wide cache in data/pair_lux/processed/ and trains a V2
-# run on a V1 condition with no error anywhere.
-OUT = "pairs_inter_%s_k%d_v2.pt"
+# The name MUST change when the condition or the node features change:
+# PairGraphDataset derives its processed_file_names from this, so reusing a name
+# loads the stale cache in data/pair_lux/processed/ and trains on the old
+# condition with no error anywhere. "_deg": X_i = internal degree, c_ij of the
+# paper's Section B. The 6-wide V1 files (no suffix) are the previous runs'.
+VERSION = "_deg"
+OUT = "pairs_inter_%s_k%d_" + SPLIT_TAG + VERSION + ".pt"
 # ===========================================================================
 
 # Resolve output BEFORE the chdir below. __file__ may be relative, in which case
 # resolving it afterwards silently lands the file in the wrong project.
 HERE = pathlib.Path(__file__).resolve().parent
 OUT_DIR = HERE.parent / "data" / "pair_lux" / "raw"
+SPLIT_DIR = HERE.parents[1] / "D_intra" / "data" / "splits"
 
 os.chdir(EXTRACTION)
 sys.path.insert(0, EXTRACTION)   # sys.path[0] is THIS script's dir, not the cwd
@@ -94,16 +104,17 @@ from benchmark import datasets                    # noqa: E402
 from kmis import orderings, reduce, sample        # noqa: E402
 
 R_BINS = 5             # r_0, r_1, r_2, r_3, r_{>=4}
-COND_NAMES = ['n_i', 'rho_i', 'n_j', 'rho_j', 'w_ij', 'k',
-              'r0', 'r1', 'r2', 'r3', 'r4+']
+R_NAMES = ['0', '1', '2', '3', '4+']
+COND_NAMES = (['n_i', 'n_j', 'w_ij'] + [f'rij{b}' for b in R_NAMES]
+              + [f'rji{b}' for b in R_NAMES])
 
-# Which condition columns get the train-mean/std treatment. The r block does
+# Which condition columns get the train-mean/std treatment. The r blocks do
 # NOT: it is already a set of proportions in [0,1], and on Luxembourg k=7 the
 # train std of r_3 and r_{>=4} is exactly 0. Standardising would divide by the
 # clamped 1e-6, so a Minnesota pair with a single degree-3 node would arrive as
 # a z-score of ~1e5 -- the same trap sample_private_blocks.py already guards
 # against for k, and just as silent.
-STANDARDISE = np.array([True] * 6 + [False] * R_BINS)
+STANDARDISE = np.array([True] * 3 + [False] * 2 * R_BINS)
 
 
 def load_fine():
@@ -133,6 +144,57 @@ def out_degree_hist(rows, n_i, n_bins=R_BINS):
     """
     d = np.bincount(rows, minlength=n_i)[:n_i]
     return np.bincount(np.clip(d, 0, n_bins - 1), minlength=n_bins) / n_i
+
+
+def split_pairs(recs, graph, k, split_tag=SPLIT_TAG):
+    """(train, test) pairs from D_intra's supernode split for this graph.
+
+    train: both supernodes are training supernodes. test: at least one is a test
+    supernode. Supernode sizes are checked against the split file, which catches
+    a coarsening that numbered supernodes differently from D_intra's.
+    """
+    import json
+    path = SPLIT_DIR / f"{graph}_k{k}_{split_tag}.json"
+    if not path.exists():
+        raise SystemExit(f"{path} not found -- run D_intra/extraction/"
+                         f"make_transfer_datasets.py first; it writes the split")
+    sp_ = json.load(open(path))
+    test, n_of = set(sp_["test"]), {int(a): b for a, b in sp_["n"].items()}
+    bad = [r for r in recs if n_of.get(int(r['sn_i'])) != int(r['n_i'])
+           or n_of.get(int(r['sn_j'])) != int(r['n_j'])]
+    if bad:
+        raise SystemExit(f"{len(bad)} pairs disagree with {path.name} on supernode "
+                         f"sizes -- the two coarsenings do not match")
+    train = [r for r in recs if int(r['sn_i']) not in test and int(r['sn_j']) not in test]
+    held = [r for r in recs if int(r['sn_i']) in test or int(r['sn_j']) in test]
+    return train, held
+
+
+def standardise(train, splits):
+    """Train-only mean / std for the STANDARDISE columns; writes r['y'] on `splits`.
+
+    The r columns get mean 0, std 1 (left raw, see STANDARDISE). So does a column
+    with (near-)zero training variance: it keeps its raw scale rather than being
+    divided by an epsilon, the rule of D_intra/extraction/kmis_pairs.py:standardise().
+    Returns (mean, std, constant), stored in the blob so that the samplers
+    standardise a released condition exactly the same way.
+    """
+    Y = torch.stack([r['y_raw'] for r in train])
+    mean, std = Y.mean(0), Y.std(0)
+    raw = torch.from_numpy(~STANDARDISE)
+    constant = std < 1e-6
+    mean = torch.where(raw, torch.zeros_like(mean), mean)
+    std = torch.where(raw | constant, torch.ones_like(std), std)
+    for split in splits:
+        for r in split:
+            r['y'] = (r['y_raw'] - mean) / std
+    return mean, std, constant
+
+
+def val_from_train(train, n=VAL_FROM_TRAIN, seed=SEED):
+    """A few TRAINING pairs for the val slot (logging only; nothing is held out)."""
+    idx = np.random.default_rng(seed + 1).permutation(len(train))[:n]
+    return [train[i] for i in idx]
 
 
 def extract_pair_records(adj, A, k, rng, min_n=MIN_N, max_combined=MAX_COMBINED,
@@ -205,16 +267,18 @@ def extract_pair_records(adj, A, k, rng, min_n=MIN_N, max_combined=MAX_COMBINED,
         dst = np.concatenate([L_i.col, L_j.col + n_i, B.col + n_i,  B.row])
         edge_index = torch.tensor(np.vstack([src, dst]), dtype=torch.long)
 
-        r = out_degree_hist(B.row, n_i)
-        y_raw = torch.tensor([n_i, rho_of[ci], n_j, rho_of[cj], B.nnz, k, *r],
-                             dtype=torch.float)
+        r = out_degree_hist(B.row, n_i)            # r_{i->j}
+        r_ji = out_degree_hist(B.col, n_j)         # r_{j->i}: B^T's rows are B's columns
+        y_raw = torch.tensor([n_i, n_j, B.nnz, *r, *r_ji], dtype=torch.float)
 
         recs.append({
             'sn_i': ci, 'sn_j': cj,
             'n_i': n_i, 'n_j': n_j,
             'edge_index': edge_index,
             'w': int(B.nnz),
-            'r': torch.tensor(r, dtype=torch.float),
+            'r': torch.tensor(r, dtype=torch.float),          # r_{i->j}; SC-RG reads 'r'
+            'r_ji': torch.tensor(r_ji, dtype=torch.float),
+            'rho_i': rho_of[ci], 'rho_j': rho_of[cj],
             'y_raw': y_raw,
         })
 
@@ -234,68 +298,18 @@ def main():
     if not recs:
         raise SystemExit("no connected pairs -- lower MIN_N or change K")
 
-    # ---- splits -----------------------------------------------------------
-    if SPLIT_BY == "pair":
-        rng.shuffle(recs)
-        ntr = int(SPLIT[0] * len(recs))
-        nva = int(SPLIT[1] * len(recs))
-        splits = [recs[:ntr], recs[ntr:ntr + nva], recs[ntr + nva:]]
-        discarded = 0
-    elif SPLIT_BY == "supernode":
-        # A pair survives only if BOTH its supernodes fall in the same split, so
-        # a split of size p keeps ~p^2 of the pairs. Square-root the fractions so
-        # the resulting PAIR split is roughly the one asked for.
-        ids = np.array(sorted(members))
-        rng.shuffle(ids)
-        f = np.sqrt(np.array(SPLIT))
-        f = f / f.sum()
-        a, b = int(f[0] * len(ids)), int((f[0] + f[1]) * len(ids))
-        side = {}
-        for s, group in enumerate((ids[:a], ids[a:b], ids[b:])):
-            side.update({int(g): s for g in group})
-        splits = [[], [], []]
-        discarded = 0
-        for r in recs:
-            if side[r['sn_i']] == side[r['sn_j']]:
-                splits[side[r['sn_i']]].append(r)
-            else:
-                discarded += 1
-    else:
-        raise SystemExit(f"SPLIT_BY must be 'pair' or 'supernode', got {SPLIT_BY!r}")
+    # ---- r diagnostics (the r_{i->j} columns) -----------------------------------
+    R = np.stack([r['y_raw'][3:3 + R_BINS].numpy() for r in recs])
 
-    if min(len(s) for s in splits) == 0:
-        raise SystemExit("a split came out empty -- too few pairs for this SPLIT_BY")
+    # ---- the shared supernode split ------------------------------------------
+    train, test = split_pairs(recs, "luxembourg", K)
+    splits = [train, val_from_train(train), test]
+    discarded = len(recs) - len(train) - len(test)
+    mean, std, constant = standardise(train, splits)
 
-    # Standardise on TRAIN statistics only, so val/test leak nothing back.
-    # The r columns are exempted by neutralising their mean/std rather than by
-    # slicing them out, so cond_mean/cond_std keep the full condition width and
-    # every downstream consumer -- sample_private_blocks.py above all -- can go
-    # on applying (y_raw - mean) / std to the whole vector unchanged.
-    #
-    # A feature with (near-)zero training variance is left on its RAW scale
-    # rather than divided by a tiny epsilon -- the same rule as
-    # D_intra/extraction/kmis_pairs.py:standardise(), and for the same reason.
-    # `k` is constant here (one graph, one locality), so clamping its std to
-    # 1e-6 mapped any unseen k to a magnitude of ~1e6 and destroyed the forward
-    # pass instead of degrading. Setting the divisor to 1 leaves training
-    # unchanged -- (k - k)/1 == (k - k)/1e-6 == 0 -- and turns an unseen k into
-    # a shift of a few units. Existing checkpoints stay valid for exactly that
-    # reason: the values they trained on do not move.
-    Y = torch.stack([r['y_raw'] for r in splits[0]])
-    mean, std = Y.mean(0), Y.std(0)
-    constant = std < 1e-6
-    std = torch.where(constant, torch.ones_like(std), std)
-    keep = torch.tensor(STANDARDISE)
-    mean = torch.where(keep, mean, torch.zeros_like(mean))
-    std = torch.where(keep, std, torch.ones_like(std))
-    for split in splits:
-        for r in split:
-            r['y'] = (r['y_raw'] - mean) / std
-
-    blob = {'k': K, 'source': NAME, 'cond_names': COND_NAMES,
+    blob = {'k': K, 'source': NAME, 'graph': 'luxembourg', 'cond_names': COND_NAMES,
             'cond_mean': mean, 'cond_std': std, 'cond_constant': constant,
-            'split_by': SPLIT_BY,
-            'standardise': torch.tensor(STANDARDISE), 'r_bins': R_BINS,
+            'split_by': f'supernode ({SPLIT_TAG}, shared with D_intra)',
             'splits': splits}
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -318,19 +332,16 @@ def main():
     print(f"  cross-block density w/(n_i n_j): mean {dens.mean():.5f}, "
           f"median {np.median(dens):.5f}")
     print(f"  condition ({len(COND_NAMES)} dims): {COND_NAMES}")
-    print(f"  raw mean: {[round(v, 3) for v in mean.tolist()]}   "
-          f"(r columns zeroed -- not standardised)")
-    print(f"  raw std : {[round(v, 3) for v in std.tolist()]}   "
-          f"(r columns set to 1)")
+    print(f"  train mean: {[round(v, 3) for v in mean.tolist()]}")
+    print(f"  train std : {[round(v, 3) for v in std.tolist()]}")
 
     # r diagnostics. If the top bins are all-zero the condition is carrying less
     # than its 5 dimensions suggest, and if r is recoverable from (n_i, w_ij) it
     # is carrying nothing NEW at all -- both are true on Luxembourg k=7. Print it
     # rather than leave it to be rediscovered.
-    R = np.stack([r['y_raw'][6:].numpy() for r in recs])
     print(f"\n  r_i->j mean {R.mean(0).round(4).tolist()}")
     print(f"  r_i->j std  {R.std(0).round(4).tolist()}")
-    dead = [COND_NAMES[6 + b] for b in range(R_BINS) if R[:, b].std() == 0]
+    dead = [COND_NAMES[3 + b] for b in range(R_BINS) if R[:, b].std() == 0]
     if dead:
         print(f"  NOTE: {dead} are constant across every pair -- those bins are "
               f"dead weight at this k. They are exempt from standardisation, so "
@@ -342,8 +353,8 @@ def main():
     same = int((np.abs(R - implied).max(axis=1) < 1e-6).sum())
     print(f"  r is exactly implied by (n_i, w_ij) for {same}/{len(recs)} pairs "
           f"({same / len(recs):.2%}) -- V2 only adds information on the rest.")
-    print(f"  split by {SPLIT_BY}: {len(splits[0])} train / {len(splits[1])} val / "
-          f"{len(splits[2])} test" + (f", {discarded} discarded" if discarded else ""))
+    print(f"  split by supernode ({SPLIT_TAG}): {len(train)} train pairs / {len(test)} test "
+          f"pairs (val slot: {len(splits[1])} training pairs)" + (f", {discarded} unassigned" if discarded else ""))
     print(f"\nwrote {path} ({os.path.getsize(path) / 1e6:.1f} MB)")
 
     if dens.mean() < 0.005:

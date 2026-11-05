@@ -1,0 +1,12 @@
+Error	B (Lux -> Olde)	C (fine-tuned)	BS1 (ER)	BS2 (SC-RG)
+RE mean degree (%)	0.79 ± 0.05	0.97 ± 0.05	0.00 ± 0.00	0.00 ± 0.00
+RE density (%)	0.79 ± 0.05	0.97 ± 0.05	0.00 ± 0.00	0.00 ± 0.00
+RE components (%)	17.91 ± 1.20	6.98 ± 0.93	1370.85 ± 11.15	0.00 ± 0.00
+RE_GCC (%)	69.89 ± 1.18	37.65 ± 2.08	161.36 ± 2.29	60.59 ± 1.57
+degW	0.2792 ± 0.0013	0.0261 ± 0.0008	0.3877 ± 0.0014	0.2327 ± 0.0015
+RE_APL (%)	32.71 ± 1.29	34.60 ± 1.12	34.81 ± 5.86	44.92 ± 0.75
+Clustering	0.1102 ± 0.0020	0.0328 ± 0.0016	0.7422 ± 0.0160	0.0848 ± 0.0022
+Orbit	0.0002 ± 0.0000	0.0007 ± 0.0000	0.0283 ± 0.0004	0.0090 ± 0.0001
+Spectrum				
+
+whole graph; seeds per column: B (Lux -> Olde)=5, C (fine-tuned)=5, BS1 (ER)=5, BS2 (SC-RG)=5; each error computed per seed, then mean and sample std (ddof=1)

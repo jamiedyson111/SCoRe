@@ -1,0 +1,18 @@
+Metric	B (Lux -> Olde)	C (fine-tuned)	BS1 (ER)	BS2 (SC-RG)	Real
+Nodes	20024 ± 0	20024 ± 0	20024 ± 0	20024 ± 0	20024
+Edges	20517.0 ± 10.8	20561.2 ± 16.5	20341.0 ± 0.0	20341.0 ± 0.0	20341.0
+internal (D_intra)	20101.6 ± 15.6	20136.6 ± 15.7	19923.0 ± 0.0	19923.0 ± 0.0	19923.0
+cross (D_inter)	415.4 ± 5.2	424.6 ± 3.0	418.0 ± 0.0	418.0 ± 0.0	418.0
+Mean degree	2.049 ± 0.001	2.054 ± 0.002	2.032 ± 0.000	2.032 ± 0.000	2.032
+Density	0.000102 ± 0.000000	0.000103 ± 0.000000	0.000101 ± 0.000000	0.000101 ± 0.000000	0.000101
+Components	844.2 ± 2.8	814.6 ± 2.9	3342.8 ± 54.4	792.0 ± 0.0	792.0
+GCC	0.0104 ± 0.0011	0.0215 ± 0.0016	0.0871 ± 0.0034	0.0130 ± 0.0017	0.0308
+APL	10.58 ± 0.58	9.83 ± 0.18	5.99 ± 0.15	8.52 ± 0.21	11.01
+RE_GCC (lower better)	0.6623 ± 0.0359	0.3024 ± 0.0530	1.8323 ± 0.1092	0.5779 ± 0.0539	0.0000
+degW (lower better)	0.2656 ± 0.0023	0.0223 ± 0.0016	0.3187 ± 0.0059	0.1529 ± 0.0031	0.0000
+RE_APL (lower better)	0.0507 ± 0.0383	0.1069 ± 0.0167	0.4558 ± 0.0138	0.2260 ± 0.0190	0.0000
+Clustering MMD (lower better)					
+Orbit MMD (lower better)					
+Spectrum MMD (lower better)					
+
+vermont k=7, test part: the subgraph on the 1104 held-out test supernodes; seeds per column: B_v3_s80-B_deg=5, Cft_v3_s80-C_deg=5, BS1=5, BS2=5; mean and sample std (ddof=1) across seeds, i.e. sampling noise only

@@ -2,35 +2,42 @@
 
 Run LOCALLY in the `kmis` conda env:
 
-    cd D_inter/dataprep && python make_transfer_pairs.py
+    cd D_inter/dataprep && python make_transfer_pairs.py                     # Oldenburg
+    cd D_inter/dataprep && python make_transfer_pairs.py --private vermont   # Vermont
 
 Mirrors D_intra/extraction/make_transfer_datasets.py:
 
-  A  train Luxembourg              -> test Luxembourg   the existing pair_lux, unchanged
-  B  train Luxembourg              -> test Oldenburg    no training: same model as A
-  C  train Luxembourg + Oldenburg  -> test Oldenburg    a new model
+  A  train Luxembourg                          -> test Luxembourg   make_pair_blocks.py
+  B  train Luxembourg                          -> test Oldenburg    no training: A's model
+  C  A's model fine-tuned on Oldenburg train   -> test Oldenburg    A's checkpoint, fine-tuned
 
-A IS pair_lux. Its pairs file (the V1 blob, pairs_inter_luxembourg_osm_k7.pt) and
-its checkpoint already exist, so this script does not rebuild it.
+A is pair_lux_s80_deg, built by make_pair_blocks.py (run that first).
 
-B is A's training and validation data with an Oldenburg test split. The
-Luxembourg records and the V1 blob's cond_mean / cond_std are copied, not
-recomputed, so B's training data is A's exactly and the existing pair_lux
-checkpoint IS the B model. Only the test split is new, standardised with the
-Luxembourg statistics the model was trained under.
+B is A's training data with an Oldenburg test split. The Luxembourg records and
+A's cond_mean / cond_std are copied, not recomputed, so B's training data is A's
+exactly and A's checkpoint IS the B model. Only the test split is new,
+standardised with the Luxembourg statistics the model was trained under.
 
-C trains on Luxembourg plus Oldenburg. Oldenburg yields far fewer pairs (219
-train against 8176), so the Oldenburg training pairs are repeated to
-OVERSAMPLE_TARGET of C's training set -- repetition, not new data, as in D_intra.
-C validates on Oldenburg and is re-standardised on its own training set.
+C FINE-TUNES A's checkpoint on the Oldenburg training pairs alone (the paper's
+"limited target adaptation subset"); scripts/run_pair.sh does it with
+general.finetune_from. Its training split is therefore Oldenburg only, with no
+oversampling. Everything the pre-trained network's inputs depend on is kept at
+A's values, so fine-tuning starts from a model that already reads them:
+  - cond_mean / cond_std are A's (Luxembourg's), not re-estimated on Oldenburg;
+  - edge_marginal is A's cross-block edge marginal, which pair_dataset.py uses in
+    place of C's own, so the noise model and its limit distribution stay A's.
+The fine-tuning pairs carry the TRUE X_i, X_j (from the real L_i, L_j), as
+training always does; generated context is an inference-time matter.
 
-THE CONDITION IS V1, [n_i, rho_i, n_j, rho_j, w_ij, k]: what the existing
-checkpoint takes and what the private release publishes. extract_pair_records
-builds the 11-wide V2 vector; the r columns are dropped here.
+THE CONDITION is make_pair_blocks.COND_NAMES, [n_i, n_j, w_ij, r_{i->j}, r_{j->i}].
 
-Oldenburg is split (0.40, 0.10, 0.50) like D_intra's private graph, so B and C
-are scored on the same, reasonably large, set of held-out pairs.
+SPLIT (October 2026): 80 / 20 by supernode, the split D_intra wrote to
+D_intra/data/splits/oldenburg_k7_s80.json. Oldenburg training pairs are those
+whose two supernodes are both training supernodes; every pair touching a test
+supernode is a test pair. B and C share the test pairs. There is no validation
+split; the "val" slot holds training pairs (logging only).
 """
+import argparse
 import copy
 import pathlib
 import sys
@@ -48,27 +55,36 @@ import scipy.sparse as sp           # noqa: E402
 import torch                        # noqa: E402
 
 # ===========================================================================
-PRIVATE = "oldenburg"
-EDGE_LIST = (PLACEMENT / "D_intra" / "extraction" / "datasets" / "Brinkhoff"
-             / "oldenburg" / "raw" / "OL.cedge")
-PUBLIC_BLOB = mpb.OUT_DIR / "pairs_inter_luxembourg_osm_k7.pt"     # the V1 blob = A
-SPLIT_PRIVATE = (0.40, 0.10, 0.50)
-OVERSAMPLE_TARGET = 0.25
-V1 = 6                              # [n_i, rho_i, n_j, rho_j, w_ij, k]
-TAG = "lux2olde_k7"
+# The private graphs, read exactly as D_intra/extraction/kmis_pairs.py reads them
+# (EDGE_LISTS there), so the coarsening -- and so the supernode ids the split file
+# names -- is the same. split_pairs checks every supernode size against it.
+DATASETS = PLACEMENT / "D_intra" / "extraction" / "datasets"
+PRIVATE_GRAPHS = {"oldenburg": DATASETS / "Brinkhoff" / "oldenburg" / "raw" / "OL.cedge",
+                  "vermont":   DATASETS / "DIMACS9" / "vermont" / "VT.mtx"}
+PUBLIC_BLOB = mpb.OUT_DIR / (mpb.OUT % (mpb.NAME, mpb.K))      # = A
 # ===========================================================================
 
 
 def load_edge_list(path):
-    """(adj SparseTensor, A csr) for an "edge_id u v length" file, as load_fine returns.
+    """(adj SparseTensor, A csr) for an "edge_id u v length" file (.cedge, 0-indexed)
+    or a MatrixMarket file (.mtx, 1-indexed, n from its header), as load_fine returns.
 
     Same reading as D_intra/extraction/kmis_pairs.py:_load_edge_list: self-loops
     and duplicate rows dropped, both directions stored, unit weights.
     """
     from torch_sparse import SparseTensor
-    uv = np.loadtxt(path, usecols=(1, 2), dtype=np.int64)
+    path = str(path)
+    if path.endswith(".mtx"):
+        with open(path) as f:
+            line = f.readline()
+            while line.startswith("%"):
+                line = f.readline()
+            n = int(line.split()[0])
+            uv = np.loadtxt(f, usecols=(0, 1), dtype=np.int64, ndmin=2) - 1
+    else:
+        uv = np.loadtxt(path, usecols=(1, 2), dtype=np.int64)
+        n = int(uv.max()) + 1
     uv = uv[uv[:, 0] != uv[:, 1]]
-    n = int(uv.max()) + 1
     row = torch.from_numpy(np.concatenate([uv[:, 0], uv[:, 1]]))
     col = torch.from_numpy(np.concatenate([uv[:, 1], uv[:, 0]]))
     adj = SparseTensor(row=row, col=col, value=torch.ones(row.numel()),
@@ -79,19 +95,15 @@ def load_edge_list(path):
     return adj, A
 
 
-def standardise(train, splits):
-    """Train-only statistics; a constant column keeps its raw scale (std := 1).
+def cross_marginal(recs):
+    """[no-edge, edge] marginal over the cross blocks of `recs`.
 
-    The rule make_pair_blocks.py uses. Writes r['y'] on every record of `splits`.
+    PairGraphDataModule.edge_counts' quantity, computed from the records: both
+    triangles of E, so 2 n_i n_j slots and 2 w_ij edges per pair.
     """
-    Y = torch.stack([r['y_raw'] for r in train])
-    mean, std = Y.mean(0), Y.std(0)
-    constant = std < 1e-6
-    std = torch.where(constant, torch.ones_like(std), std)
-    for split in splits:
-        for r in split:
-            r['y'] = (r['y_raw'] - mean) / std
-    return mean, std, constant
+    slots = 2.0 * sum(int(r['n_i']) * int(r['n_j']) for r in recs)
+    edges = 2.0 * sum(int(r['w']) for r in recs)
+    return torch.tensor([slots - edges, edges]) / slots
 
 
 def describe(name, recs):
@@ -102,65 +114,67 @@ def describe(name, recs):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--private", default="oldenburg", choices=sorted(PRIVATE_GRAPHS))
+    PRIVATE = ap.parse_args().private
+    TAG = f"lux2{PRIVATE[:4]}_k{mpb.K}_{mpb.SPLIT_TAG}{mpb.VERSION}"
     pub = torch.load(PUBLIC_BLOB, map_location="cpu")
-    assert list(pub['cond_names']) == mpb.COND_NAMES[:V1], pub['cond_names']
+    assert list(pub['cond_names']) == mpb.COND_NAMES, pub['cond_names']
     k = int(pub['k'])
     lux_tr, lux_va, lux_te = pub['splits']
+    stats = {'cond_mean': pub['cond_mean'], 'cond_std': pub['cond_std'],
+             'cond_constant': pub['cond_constant']}
 
-    # ---- Oldenburg pairs, same extraction as Luxembourg ------------------
+    def lux_standardise(recs):
+        for r in recs:
+            r['y'] = (r['y_raw'] - pub['cond_mean']) / pub['cond_std']
+        return recs
+
+    # ---- the private graph's pairs, same extraction as Luxembourg ---------
     rng = np.random.default_rng(mpb.SEED)
-    adj, A = load_edge_list(EDGE_LIST)
+    adj, A = load_edge_list(PRIVATE_GRAPHS[PRIVATE])
     print(f"{PRIVATE}: {adj.size(0)} nodes, {int(A.nnz / 2)} edges, k={k}")
     recs, too_big = mpb.extract_pair_records(adj, A, k, rng)
     for r in recs:
-        r['y_raw'] = r['y_raw'][:V1]                # V1: drop the r block
         r['graph'] = PRIVATE
     print(f"kept {len(recs)} connected pairs"
           + (f" (dropped {too_big} with n_i+n_j > {mpb.MAX_COMBINED})" if too_big else ""))
 
-    # The split shuffle continues the orientation rng, as make_pair_blocks does.
-    rng.shuffle(recs)
-    ntr = int(SPLIT_PRIVATE[0] * len(recs))
-    nva = int(SPLIT_PRIVATE[1] * len(recs))
-    olde_tr, olde_va, olde_te = recs[:ntr], recs[ntr:ntr + nva], recs[ntr + nva:]
+    # The supernode split D_intra wrote; the same rule as Luxembourg's.
+    olde_tr, olde_te = mpb.split_pairs(recs, PRIVATE, k)
 
     print("\nwhere the two graphs differ (the transfer gap):")
     print(describe("luxembourg", lux_tr))
     print(describe(PRIVATE, recs))
 
-    common = {'k': k, 'cond_names': list(pub['cond_names']), 'split_by': 'pair',
+    common = {'k': k, 'cond_names': list(pub['cond_names']),
+              'split_by': f"supernode ({mpb.SPLIT_TAG}, shared with D_intra)",
               'public': 'luxembourg', 'private': PRIVATE, 'source': TAG}
 
     # ---- B: Luxembourg train/val, Oldenburg test, Luxembourg statistics ---
     # The test records are copied before y is written, so B and C each carry
     # their own standardisation of the same Oldenburg pairs.
-    b_te = copy.deepcopy(olde_te)
-    for r in b_te:
-        r['y'] = (r['y_raw'] - pub['cond_mean']) / pub['cond_std']
-    B = dict(common, config='B', cond_mean=pub['cond_mean'], cond_std=pub['cond_std'],
-             splits=[lux_tr, lux_va, b_te])
+    B = dict(common, config='B', **stats,
+             splits=[lux_tr, lux_va, lux_standardise(copy.deepcopy(olde_te))])
 
-    # ---- C: Luxembourg + oversampled Oldenburg train, Oldenburg val/test ---
-    want = OVERSAMPLE_TARGET / (1 - OVERSAMPLE_TARGET) * len(lux_tr)
-    reps = max(1, int(round(want / len(olde_tr))))
-    c_tr = copy.deepcopy(lux_tr) + [copy.deepcopy(r) for r in olde_tr for _ in range(reps)]
-    np.random.default_rng(mpb.SEED).shuffle(c_tr)
-    c_va, c_te = copy.deepcopy(olde_va), copy.deepcopy(olde_te)
-    mean, std, constant = standardise(c_tr, [c_tr, c_va, c_te])
-    C = dict(common, config='C', cond_mean=mean, cond_std=std, cond_constant=constant,
-             private_oversample_factor=reps, splits=[c_tr, c_va, c_te])
+    # ---- C: fine-tune on Oldenburg train, Oldenburg test, A's statistics ----
+    c_tr = lux_standardise(copy.deepcopy(olde_tr))
+    c_va, c_te = mpb.val_from_train(c_tr), lux_standardise(copy.deepcopy(olde_te))
+    C = dict(common, config='C', **stats, edge_marginal=cross_marginal(lux_tr),
+             finetune_of='A', splits=[c_tr, c_va, c_te])
 
-    print(f"\n{PRIVATE} split: {len(olde_tr)} train / {len(olde_va)} val / "
-          f"{len(olde_te)} test  (B and C share the test pairs)")
+    print(f"\n{PRIVATE} split: {len(olde_tr)} train / {len(olde_te)} test pairs "
+          f"(B and C share the test pairs; no validation split)")
     for blob in (B, C):
         path = mpb.OUT_DIR / f"pairs_inter_{blob['config']}_{TAG}.pt"
         torch.save(blob, path)
         tr, va, te = (len(s) for s in blob['splits'])
         print(f"  {path.name:<34} {tr:>6} train / {va:>5} val / {te:>4} test")
-    n_priv = len(olde_tr) * reps
-    print(f"\n  config C: {len(olde_tr)} {PRIVATE} train pairs repeated x{reps} -> "
-          f"{n_priv} of {len(c_tr)} ({100 * n_priv / len(c_tr):.0f}% of the training set)")
-    print("  A is pair_lux itself; its V1 blob and checkpoint are unchanged.")
+    print(f"\n  config C: fine-tunes A's model on the {len(c_tr)} {PRIVATE} training pairs "
+          f"(A's condition statistics; A's edge marginal "
+          f"{[round(v, 5) for v in C['edge_marginal'].tolist()]}, "
+          f"{PRIVATE}'s own {[round(v, 5) for v in cross_marginal(olde_tr).tolist()]})")
+    print("  A is the Luxembourg file itself (make_pair_blocks.py); B uses A's model.")
     print(f"\nDataset configs: configs/dataset/pair_{{B,C}}_{TAG}.yaml")
 
 

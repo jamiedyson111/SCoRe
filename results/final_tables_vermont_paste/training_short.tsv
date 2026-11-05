@@ -1,0 +1,11 @@
+Training
+	Model	Examples	Epochs	Time (h)	s / epoch	Peak GPU alloc (GB)
+	D_intra v3, Luxembourg (A, B)	7052	200	1.42	25.6	13.82
+	D_intra no h, Luxembourg	7052	200	1.46	26.2	13.82
+	D_intra v3, fine-tuned (C)	4418	100	0.92	33.2	13.48
+	D_intra no h, fine-tuned	4418	100	1.00	35.9	13.48
+	D_intra DiGress, VT only	4418	320	2.43	27.4	13.48
+	D_inter, Luxembourg (A, B)	6904	180	3.34	66.7	19.91
+	D_inter, fine-tuned (C)	5069	100	2.49	89.6	19.26
+	D_inter no r, Luxembourg	6904	180	3.33	66.6	19.91
+	D_inter no r, fine-tuned	5069	100	2.18	78.4	19.26

@@ -1,0 +1,11 @@
+Metric	Real	A (Lux -> Lux)	BS1 (ER)	BS2 (SC-RG)
+Cross edges (mean)	1.1066	1.1054 ± 0.0009	1.1066 ± 0.0000	1.1066 ± 0.0000
+Cross edges (std)	0.3718	0.3840 ± 0.0087	0.3718 ± 0.0000	0.3718 ± 0.0000
+Cross density (mean)	0.00669	0.00670 ± 0.00001	0.00669 ± 0.00000	0.00669 ± 0.00000
+Cross density (std)	0.00408	0.00414 ± 0.00004	0.00408 ± 0.00000	0.00408 ± 0.00000
+D_out (mean)	0.0723	0.0722 ± 0.0001	0.0723 ± 0.0000	0.0723 ± 0.0000
+D_out (std)	0.2613	0.2613 ± 0.0003	0.2608 ± 0.0004	0.2613 ± 0.0000
+Degree dist. vs real (W1)	0.00000	0.00029 ± 0.00012	0.00009 ± 0.00008	0.00004 ± 0.00004
+Out-degree profile E_r	0.0000	0.0049 ± 0.0003	0.0034 ± 0.0004	0.0000 ± 0.0000
+
+3998 held-out Luxembourg pairs; runs per configuration: A_deg=5, A_BS1=5, A_BS2=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only

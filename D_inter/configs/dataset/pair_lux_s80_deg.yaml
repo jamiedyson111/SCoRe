@@ -1,0 +1,8 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# A (and B's training data): Luxembourg pairs. The paper's Section B D_inter:
+# node features X_i = internal degree d_in(v)/(n_i-1) instead of L_i, condition
+# c_ij = [n_i, n_j, w_ij, r_{i->j}, r_{j->i}] (dataprep/make_pair_blocks.py).
+# 80/20 train/test by SUPERNODE, shared with D_intra. No validation split.
+pairs_file: 'pairs_inter_luxembourg_osm_k7_s80_deg.pt'

@@ -1,0 +1,19 @@
+{
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "host": "bear-pg0208u15a",
+  "slurm_job_id": "58035291",
+  "time": "2026-10-19 19:27:55",
+  "name": "transfer_C_nohop_centroid_s80",
+  "dataset": "pairs_C_lux2olde_k7_s80_nohop.pt",
+  "batch_size": 64,
+  "diffusion_steps": 500,
+  "phase": "train",
+  "n_train": 9338,
+  "fit_s": 12398.4,
+  "train_s": 12376.0,
+  "val_s": 17.9,
+  "epochs": 200,
+  "s_per_epoch": 61.88,
+  "peak_alloc_mb": 17350.3,
+  "peak_reserved_mb": 39754.0
+}

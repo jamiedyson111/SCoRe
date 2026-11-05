@@ -24,6 +24,10 @@ class AbstractDataModule(LightningDataset):
         for loader in [self.train_dataloader(), self.val_dataloader()]:
             for data in loader:
                 unique, counts = torch.unique(data.batch, return_counts=True)
+                # Grow past max_nodes_possible rather than fault: DBLP / ogbl-collab
+                # pairs reach 600 nodes. The result is trimmed to the largest size below.
+                if int(counts.max()) >= len(all_counts):
+                    all_counts = torch.cat([all_counts, torch.zeros(int(counts.max()) + 1 - len(all_counts))])
                 for count in counts:
                     all_counts[count] += 1
         max_index = max(all_counts.nonzero())
@@ -108,6 +112,11 @@ class AbstractDatasetInfos:
         self.input_dims = {'X': example_batch['x'].size(1),
                            'E': example_batch['edge_attr'].size(1),
                            'y': example_batch['y'].size(1) + 1}      # + 1 due to time conditioning
+        # Observed real-valued node features (D_inter's X_i, X_j), concatenated to
+        # the model input but never diffused or predicted, so input only.
+        x_in = getattr(example_batch, 'x_in', None)
+        if x_in is not None:
+            self.input_dims['X'] += x_in.size(1)
         ex_extra_feat = extra_features(example_data)
         self.input_dims['X'] += ex_extra_feat.X.size(-1)
         self.input_dims['E'] += ex_extra_feat.E.size(-1)

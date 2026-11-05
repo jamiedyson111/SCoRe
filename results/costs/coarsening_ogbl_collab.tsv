@@ -1,0 +1,16 @@
+Quantity	ogbl-collab_all k=2	ogbl-collab_all k=3	ogbl-collab_all k=4	ogbl-collab_all k=5
+n	235868	235868	235868	235868
+m	1024434	1024434	1024434	1024434
+k	2	3	4	5
+#components	43	43	43	43
+#supernodes M	14051	7780	3798	2071
+#supernodes with n_i >= 3	11714	7277	3787	2060
+n_i mean	16.79	30.32	62.10	113.89
+n_i median	5	8	19	23
+n_i 95th percentile	52	75	151	138.50
+n_i max	4613	26871	61661	139972
+#super edges (edges between supernodes)	373515	306423	270031	142750
+#connected supernode pairs	106590	51246	34369	9209
+m_i median	7	13	35	45
+m_i mean	46.33	92.29	198.63	425.73
+check: sum m_i + super edges = m	yes	yes	yes	yes

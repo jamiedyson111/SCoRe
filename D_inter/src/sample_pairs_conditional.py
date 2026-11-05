@@ -1,13 +1,26 @@
 """Record-aligned sampling of D_inter's test split: one B_ij per test pair.
 
 Runs in the `digress` env, on a GPU. For every pair in the dataset's TEST split,
-the real L_i and L_j are given as context, the pair's own standardised condition
-y as c_ij, and the model generates the cross block:
+the node features X_i, X_j (normalised internal degree) are given as context, the
+pair's own standardised condition y as c_ij, and the model generates the cross
+block:
 
     python3 sample_pairs_conditional.py \
-        dataset=pair_B_lux2olde_k7 +experiment=pair_lux \
-        general.test_only="'/abs/path/checkpoints/pair_lux/epoch=179.ckpt'" \
-        +repeats=5
+        dataset=pair_B_lux2olde_k7_s80_deg +experiment=pair_lux \
+        general.test_only="'/abs/path/checkpoints/pair_lux_s80_deg/last.ckpt'" \
+        +repeats=5 \
+        +clusters_dir=/abs/D_intra/private_inference/out +clusters_tag=B_v3_s80
+
+WHERE X_i, X_j COME FROM (the paper: true at training, generated at inference):
+  generated  +clusters_dir and +clusters_tag given. Seed s computes X^_i, X^_j from
+             the generated internal blocks L^_i, L^_j of D_intra's whole-graph run
+             clusters_<graph>_k<k>_<clusters_tag>_s<s>.pt -- the same files the
+             full-graph inference uses, so supernode ids are the release's, which
+             are the pairs file's (checked: every size must match). Configs B, C.
+  real       neither given: X_i, X_j from the record's own real L_i, L_j. Config A
+             (D_intra has no generated L^ for Luxembourg's training supernodes,
+             which half of every A test pair is), and the B / C ablation that
+             measures the train--inference shift.
 
 main.py's test mode is not used for this because it draws conditions at random,
 with replacement, and does not record which pair a sample was for -- fine for a
@@ -18,16 +31,15 @@ block, which is what the A/B/C comparison needs.
 0..N-1) from the one loaded checkpoint and writes pair_samples_s<seed>.pt into the
 hydra run directory:
 
-    {pairs_file, checkpoint, seed, blocks: [{idx, sn_i, sn_j, n_i, n_j, w, edge_index}]}
+    {pairs_file, checkpoint, seed, context, clusters,
+     blocks: [{idx, sn_i, sn_j, n_i, n_j, w, edge_index}]}
 
 idx is the pair's position in the test split; edge_index is the generated cross
 block in local ids (row: i side 0..n_i-1, col: j side 0..n_j-1).
 evaluation/transfer_summary.py scores the files.
 
-The `given` encoding mirrors PairDatasetInfos.sample_conditioning and
-private_inference/sample_private_blocks.py:build_given entry for entry:
-no-edge [1,0], edge [0,1], diagonal and padding [0,0]. Cross entries start at
-no-edge and are overwritten with noise by sample_batch, so are never read.
+The observed context is built by datasets/pair_dataset.py:build_given, the one
+function training's sample_conditioning and the full-graph sampler also use.
 """
 import graph_tool as gt   # noqa: F401  MUST BE FIRST -- see sample_private_blocks.py
 import os
@@ -45,6 +57,7 @@ from src import utils                                              # noqa: F401
 from metrics.abstract_metrics import TrainAbstractMetricsDiscrete
 from diffusion_model_discrete import DiscreteDenoisingDiffusion
 from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
+import costlog
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
@@ -58,34 +71,33 @@ def seed_all(seed):
     torch.cuda.manual_seed_all(seed)
 
 
-def build_given(chunk, device):
-    """(X, E) observed context for a batch of test records, padded to the batch max.
-
-    The internal blocks come from each record's own edge_index: an edge is
-    context exactly when both endpoints are on the same side.
-    """
-    n_nodes = torch.tensor([r['n_i'] + r['n_j'] for r in chunk], device=device)
-    n_max = int(n_nodes.max())
-    bs = len(chunk)
-
-    X = torch.zeros(bs, n_max, 2, device=device)
-    E = torch.zeros(bs, n_max, n_max, 2, device=device)
-    for b, r in enumerate(chunk):
-        n_i, n = r['n_i'], r['n_i'] + r['n_j']
-        X[b, :n_i, 0] = 1.
-        X[b, n_i:n, 1] = 1.
-        E[b, :n, :n, 0] = 1.                           # no-edge everywhere first
-        src, dst = r['edge_index'].to(device)
-        same_side = (src < n_i) == (dst < n_i)
-        src, dst = src[same_side], dst[same_side]
-        E[b, src, dst, 0] = 0.
-        E[b, src, dst, 1] = 1.
-        E[b, torch.arange(n), torch.arange(n), :] = 0.
-    return {'X': X, 'E': E}, n_nodes
+def _load(path):
+    try:
+        return torch.load(path, map_location='cpu', weights_only=False)
+    except TypeError:
+        return torch.load(path, map_location='cpu')
 
 
-def sample_split(model, test, device, seed, meta, out_path):
-    """One cross block per test record, written to out_path."""
+def generated_features(test, path):
+    """[(x^_i, x^_j)] per test record, from the generated internal blocks in `path`."""
+    from datasets.pair_dataset import internal_degree
+    clusters = _load(path)['clusters']
+    feats = []
+    for r in test:
+        pair = []
+        for sn, n in ((int(r['sn_i']), int(r['n_i'])), (int(r['sn_j']), int(r['n_j']))):
+            c = clusters[sn]
+            if int(c['n']) != n:
+                raise SystemExit(f"{path}: supernode {sn} has {c['n']} nodes, the pairs "
+                                 f"file says {n} -- not the same coarsening")
+            pair.append(internal_degree(c['edge_index'], n))
+        feats.append(tuple(pair))
+    return feats
+
+
+def sample_split(model, test, feats, device, seed, meta, out_path):
+    """One cross block per test record, written to out_path. feats: (x_i, x_j) each."""
+    from datasets.pair_dataset import build_given
     seed_all(seed)
     # Sorted by combined size so each batch pads close to its own maximum.
     order = sorted(range(len(test)), key=lambda i: test[i]['n_i'] + test[i]['n_j'])
@@ -95,7 +107,7 @@ def sample_split(model, test, device, seed, meta, out_path):
             idx = order[start:start + BATCH]
             chunk = [test[i] for i in idx]
             cond_y = torch.stack([r['y'] for r in chunk]).float().to(device)
-            given, n_nodes = build_given(chunk, device)
+            given, n_nodes = build_given([feats[i] for i in idx], device)
             samples = model.sample_batch(batch_id=start, batch_size=len(chunk),
                                          keep_chain=0, number_chain_steps=1,
                                          save_final=0, num_nodes=n_nodes,
@@ -117,8 +129,11 @@ def sample_split(model, test, device, seed, meta, out_path):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
+    # +sample_batch=N overrides the batch (default 32, which the Oldenburg runs used).
+    global BATCH
+    BATCH = int(cfg.get('sample_batch', BATCH))
     assert cfg.general.test_only, 'pass general.test_only="\'/abs/path/to/ckpt\'"'
-    from datasets.pair_dataset import PairGraphDataModule, PairDatasetInfos
+    from datasets.pair_dataset import PairGraphDataModule, PairDatasetInfos, record_features
 
     datamodule = PairGraphDataModule(cfg)
     dataset_infos = PairDatasetInfos(datamodule, cfg.dataset)
@@ -148,16 +163,40 @@ def main(cfg: DictConfig):
     print(f"{cfg.dataset.pairs_file}: generating {len(test)} cross blocks")
     print(f"condition ({len(blob['cond_names'])} dims): {list(blob['cond_names'])}")
 
+    # Context: generated (B, C) or real (A, and the shift ablation). See the top.
+    generated = bool(cfg.get('clusters_tag'))
+    assert generated == bool(cfg.get('clusters_dir')), \
+        "+clusters_dir and +clusters_tag go together (generated context) or not at all (real)"
+    gk = f"{blob.get('private', blob.get('graph'))}_k{blob['k']}"
+    print("context: " + (f"GENERATED X^_i, X^_j from {cfg.clusters_dir}/clusters_{gk}_"
+                         f"{cfg.clusters_tag}_s<seed>.pt" if generated else
+                         "REAL X_i, X_j (from the true L_i, L_j)"))
+    real_feats = None if generated else [record_features(r) for r in test]
+
     out_dir = HydraConfig.get().runtime.output_dir
     meta = {'pairs_file': str(cfg.dataset.pairs_file),
-            'checkpoint': str(cfg.general.test_only)}
+            'checkpoint': str(cfg.general.test_only),
+            'context': 'generated' if generated else 'real'}
     repeats = int(cfg.get('repeats', 1))
     seed0 = int(cfg.get('seed', 0))
+    runs = []
     for rep in range(repeats):
         seed = seed0 + rep
         print(f"\nrepeat {rep + 1}/{repeats}  (seed {seed})")
-        sample_split(model, test, device, seed, meta,
-                     os.path.join(out_dir, f'pair_samples_s{seed}.pt'))
+        feats, cpath = real_feats, None
+        if generated:
+            cpath = os.path.join(cfg.clusters_dir, f"clusters_{gk}_{cfg.clusters_tag}_s{seed}.pt")
+            print(f"  context {cpath}")
+            feats = generated_features(test, cpath)
+        with costlog.Measure() as m:
+            sample_split(model, test, feats, device, seed, dict(meta, clusters=cpath),
+                         os.path.join(out_dir, f'pair_samples_s{seed}.pt'))
+        runs.append({'seed': seed, **m.record})
+    # Runtime and peak GPU memory of each repeat -> cost_sample.json (costlog.py)
+    costlog.write(os.path.join(out_dir, 'cost_sample.json'), {
+        **costlog.safe_context(cfg, phase='sample',
+                               what=f"D_inter, test pairs ({meta['context']} X_i, X_j)",
+                               n_items=len(test), sample_batch=BATCH), 'runs': runs})
 
 
 if __name__ == '__main__':

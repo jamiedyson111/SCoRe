@@ -93,9 +93,14 @@ def parse_generated(path):
     return out
 
 
-def has_centroid(x):
-    """True when the node-class row marks node 0, and only node 0, as the centroid."""
-    return len(x) > 0 and x[0] == 1 and not x[1:].any()
+def centroid_index(x):
+    """The node the node-class row marks as the centroid, or None unless exactly one is.
+
+    The models fix the centroid at node 0; other generators (Huiping's ER / SC_RG)
+    mark the k-MIS centre at its own position in the supernode.
+    """
+    marked = np.flatnonzero(np.asarray(x) == 1)
+    return int(marked[0]) if len(marked) == 1 else None
 
 
 def hop_hist(A, centre, k):

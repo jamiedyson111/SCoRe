@@ -26,13 +26,13 @@ context for seed `s` of stage 2, so every seed is a whole synthetic graph.
 
 | config | D_intra | D_inter |
 |---|---|---|
-| `B_v3-B` | `transfer_B_v3` (Luxembourg only) | V1 `pair_lux`, epoch=179 |
-| `C_v3-C` | `transfer_C_olde_v3` (Lux + Olde train) | `pair_C_olde`, recorded best |
+| `B_v3_s80-B` | `transfer_A_v3_s80` (Luxembourg only) | `pair_lux_s80` |
+| `C_v3_s80-C` | `transfer_C_v3_s80` (Lux + Olde train) | `pair_C_s80` |
 
-Checkpoints are picked exactly as for the D_intra repeat tables and the D_inter
-transfer table, so the three tables describe the same models. C's models saw the
-Oldenburg training split, and the assembled graph is all of Oldenburg, so C's
-column is not a held-out result; B's is.
+Each at its final checkpoint, the same models the D_intra and D_inter tables
+score (80/20 supernode split, no validation). Every block is generated. The
+graph is scored as a whole and as its **test part** -- the subgraph on the 63
+held-out test supernodes -- which contains no training supernode for B or C.
 
 On BlueBEAR (the release must already be in `D_intra/private_inference/out/`):
 
@@ -45,16 +45,17 @@ sbatch --dependency=afterok:$JB private_inference/run_private_blocks_repeats.sh 
 sbatch --dependency=afterok:$JC private_inference/run_private_blocks_repeats.sh --repeats 5 C C_v3
 ```
 
-Files land beside the release as `clusters_oldenburg_k7_<ICFG>_s<seed>.pt` and
-`blocks_oldenburg_k7_<ICFG>-<CFG>_s<seed>.pt`. Copy them into the local
-`D_intra/private_inference/out/`, then:
+Files land beside the release as `clusters_oldenburg_k7_<ICFG>_s80_s<seed>.pt` and
+`blocks_oldenburg_k7_<ICFG>_s80-<CFG>_s<seed>.pt`. Copy them into the local
+`results/samples/assembled/`, then:
 
 ```bash
-python syn_repeats_summary.py      # -> ../../results/D_inter/tables/syn/syn_summary.tsv, syn_table.tex
+python syn_repeats_summary.py      # -> results/D_inter/tables/syn_s80/syn_summary{,_test}.tsv
 ```
 
 Rows are `assemble_syn.py`'s own (it imports `assemble`, `stats`, `topology`);
-Random is redrawn per seed. Feeding the private graph's own blocks in as every
+BS1 (Huiping's ER) and BS2 (her SC-RG) are redrawn per seed, on every supernode
+and pair, by `baselines/full_graph.py`. Feeding the private graph's own blocks in as every
 seed reproduces the Real column exactly (RE_GCC, degW, RE_APL all 0).
 
 ## Stage 2 — cross blocks

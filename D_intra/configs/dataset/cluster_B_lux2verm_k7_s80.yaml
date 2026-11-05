@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# B: Luxembourg model (A's) -> test Vermont (1104 test supernodes). 80/20 by supernode.
+pairs_file: 'pairs_B_lux2verm_k7_s80.pt'

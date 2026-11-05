@@ -1,0 +1,148 @@
+== D_intra
+  A_v3: 5 runs (seeds [0, 1, 2, 3, 4]), 1763 supernodes
+
+Metric	Real	A v3 (hops + centroid)
+Degree (median)	2.0	2.0 ± 0.0
+Degree (mean)	1.8790	1.8852 ± 0.0023
+Degree (std)	0.5635	0.5616 ± 0.0018
+Connected (%)	100.00	97.78 ± 0.51
+Acyclic (%)	88.43	85.97 ± 0.82
+Components (mean)	1.0000	1.0225 ± 0.0054
+Edge-count MAE	0.0000	0.1353 ± 0.0050
+Degree dist. vs real (W1)	0.0000	0.0081 ± 0.0024
+Spectrum vs real	0.0000	0.0704 ± 0.0000
+Hop error E_h	0.0000	0.1472 ± 0.0042
+
+1763 held-out Luxembourg supernodes; runs per configuration: A_v3=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only; E_h is blank where the samples mark no centroid
+
+wrote /home/jamie/Projects/Placement/results/D_intra/tables/final/repeats_summary_A.tsv
+wrote /home/jamie/Projects/Placement/results/D_intra/tables/final/repeats_per_seed_A.tsv
+  B_nohop_centroid: 5 runs (seeds [0, 1, 2, 3, 4]), 63 supernodes
+  B_v3: 5 runs (seeds [0, 1, 2, 3, 4]), 63 supernodes
+  Cft_nohop_centroid: 5 runs (seeds [0, 1, 2, 3, 4]), 63 supernodes
+  Cft_v3: 5 runs (seeds [0, 1, 2, 3, 4]), 63 supernodes
+  BS1: 5 runs (seeds [0, 1, 2, 3, 4]), 63 supernodes
+  BS2: 5 runs (seeds [0, 1, 2, 3, 4]), 63 supernodes
+  O_uncond: 5 runs (seeds [0, 1, 2, 3, 4]), 63 supernodes
+
+Metric	Real	B (no hops + centroid)	B v3 (hops + centroid)	C (no h, fine-tuned)	C v3 (fine-tuned)	BS1 (ER)	BS2 (SC-RG)	DiGress (Oldenburg 80/20)
+Degree (median)	2.0	2.0 ± 0.0	2.0 ± 0.0	2.0 ± 0.0	2.0 ± 0.0	2.0 ± 0.0	2.0 ± 0.0	2.0 ± 0.0
+Degree (mean)	1.9948	1.9688 ± 0.0043	2.0205 ± 0.0122	2.0413 ± 0.0111	2.0295 ± 0.0151	1.9948 ± 0.0000	1.9948 ± 0.0000	1.9958 ± 0.0112
+Degree (std)	0.7561	0.6482 ± 0.0069	0.6774 ± 0.0192	0.7509 ± 0.0075	0.7519 ± 0.0075	1.2832 ± 0.0220	0.9729 ± 0.0050	0.7328 ± 0.0149
+Connected (%)	100.00	98.10 ± 2.07	94.60 ± 0.87	99.05 ± 1.42	97.14 ± 2.07	13.97 ± 3.62	100.00 ± 0.00	99.05 ± 0.87
+Acyclic (%)	50.79	56.51 ± 2.41	48.89 ± 2.84	48.57 ± 1.81	47.94 ± 2.61	9.52 ± 1.94	50.79 ± 0.00	52.38 ± 4.63
+Components (mean)	1.0000	1.0190 ± 0.0207	1.0540 ± 0.0087	1.0095 ± 0.0142	1.0286 ± 0.0207	3.4032 ± 0.1038	1.0000 ± 0.0000	1.0095 ± 0.0087
+Edge-count MAE	0.0000	0.3841 ± 0.0362	0.5397 ± 0.0701	0.5460 ± 0.0916	0.5587 ± 0.0879	0.0000 ± 0.0000	0.0000 ± 0.0000	0.8921 ± 0.1085
+Degree dist. vs real (W1)	0.0000	0.1618 ± 0.0077	0.1299 ± 0.0138	0.0517 ± 0.0098	0.0434 ± 0.0115	0.4545 ± 0.0165	0.2031 ± 0.0094	0.0281 ± 0.0138
+Spectrum vs real	0.0000	0.0745 ± 0.0009	0.0753 ± 0.0011	0.0771 ± 0.0012	0.0754 ± 0.0017	0.1296 ± 0.0064	0.0759 ± 0.0008	0.0749 ± 0.0024
+Hop error E_h	0.0000	0.3289 ± 0.0103	0.2821 ± 0.0278	0.3620 ± 0.0104	0.2857 ± 0.0218	0.5806 ± 0.0318	0.0000 ± 0.0000	
+
+63 held-out Oldenburg supernodes; runs per configuration: B_nohop_centroid=5, B_v3=5, Cft_nohop_centroid=5, Cft_v3=5, BS1=5, BS2=5, O_uncond=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only; E_h is blank where the samples mark no centroid
+
+wrote /home/jamie/Projects/Placement/results/D_intra/tables/final/repeats_summary.tsv
+wrote /home/jamie/Projects/Placement/results/D_intra/tables/final/repeats_per_seed.tsv
+== D_inter
+  A_deg: 5 runs (seeds [0, 1, 2, 3, 4]), 3998 pairs
+
+Metric	Real	A (Lux -> Lux)
+Cross density (mean)	0.00669	0.00670 ± 0.00001
+Cross density (std)	0.00408	0.00414 ± 0.00004
+D_out (mean)	0.0723	0.0722 ± 0.0001
+D_out (std)	0.2613	0.2613 ± 0.0003
+Degree dist. vs real (W1)	0.00000	0.00029 ± 0.00012
+Out-degree profile E_r	0.0000	0.0049 ± 0.0003
+
+3998 held-out Luxembourg pairs; runs per configuration: A_deg=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only
+
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/final/pairs_summary_A_final.tsv
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/final/pairs_per_seed_A_final.tsv
+  B_deg_nor: 5 runs (seeds [0, 1, 2, 3, 4]), 187 pairs
+  B_deg: 5 runs (seeds [0, 1, 2, 3, 4]), 187 pairs
+  Cft_deg_nor: 5 runs (seeds [0, 1, 2, 3, 4]), 187 pairs
+  Cft_deg: 5 runs (seeds [0, 1, 2, 3, 4]), 187 pairs
+  BS1: 5 runs (seeds [0, 1, 2, 3, 4]), 187 pairs
+  BS2: 5 runs (seeds [0, 1, 2, 3, 4]), 187 pairs
+
+Metric	Real	B (no r)	B (Lux -> Olde)	C (no r, fine-tuned)	C (fine-tuned)	BS1 (ER)	BS2 (SC-RG)
+Cross density (mean)	0.00412	0.00416 ± 0.00007	0.00409 ± 0.00005	0.00406 ± 0.00005	0.00417 ± 0.00005	0.00412 ± 0.00000	0.00412 ± 0.00000
+Cross density (std)	0.00343	0.00354 ± 0.00020	0.00343 ± 0.00006	0.00353 ± 0.00020	0.00360 ± 0.00011	0.00343 ± 0.00000	0.00343 ± 0.00000
+D_out (mean)	0.0608	0.0613 ± 0.0008	0.0600 ± 0.0014	0.0585 ± 0.0003	0.0608 ± 0.0007	0.0608 ± 0.0000	0.0608 ± 0.0000
+D_out (std)	0.2445	0.2489 ± 0.0018	0.2496 ± 0.0050	0.2388 ± 0.0019	0.2460 ± 0.0035	0.2430 ± 0.0014	0.2445 ± 0.0000
+Degree dist. vs real (W1)	0.00000	0.00096 ± 0.00040	0.00161 ± 0.00033	0.00227 ± 0.00033	0.00083 ± 0.00028	0.00196 ± 0.00041	0.00109 ± 0.00051
+Out-degree profile E_r	0.0000	0.0180 ± 0.0038	0.0175 ± 0.0040	0.0163 ± 0.0028	0.0171 ± 0.0045	0.0116 ± 0.0009	0.0000 ± 0.0000
+
+187 held-out Oldenburg pairs; runs per configuration: B_deg_nor=5, B_deg=5, Cft_deg_nor=5, Cft_deg=5, BS1=5, BS2=5; mean and sample std (ddof=1) across runs, i.e. sampling noise only
+
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/final/pairs_summary_final.tsv
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/final/pairs_per_seed_final.tsv
+== full graph
+oldenburg k=7: 6105 nodes, 7029 edges; test part: 63 test supernodes, 1152 nodes, 1183 edges
+  B_v3_s80-B_deg seed 0: 7101 edges, degW whole 0.0993, test part 0.0990
+  B_v3_s80-B_deg seed 1: 7116 edges, degW whole 0.1071, test part 0.1319
+  B_v3_s80-B_deg seed 2: 7107 edges, degW whole 0.1101, test part 0.1285
+  B_v3_s80-B_deg seed 3: 7122 edges, degW whole 0.0953, test part 0.1458
+  B_v3_s80-B_deg seed 4: 7136 edges, degW whole 0.0980, test part 0.1233
+  Cft_v3_s80-C_deg seed 0: 7092 edges, degW whole 0.0210, test part 0.0365
+  Cft_v3_s80-C_deg seed 1: 7109 edges, degW whole 0.0262, test part 0.0503
+  Cft_v3_s80-C_deg seed 2: 7106 edges, degW whole 0.0252, test part 0.0486
+  Cft_v3_s80-C_deg seed 3: 7104 edges, degW whole 0.0272, test part 0.0347
+  Cft_v3_s80-C_deg seed 4: 7103 edges, degW whole 0.0242, test part 0.0226
+/home/jamie/anaconda3/envs/kmis/lib/python3.8/site-packages/scipy/sparse/_index.py:146: SparseEfficiencyWarning: Changing the sparsity structure of a csr_matrix is expensive. lil_matrix is more efficient.
+  self._set_arrayXarray(i, j, x)
+  BS1, BS2: seeds [0, 1, 2, 3, 4]
+
+== oldenburg k=7, whole graph
+Metric	B (Lux -> Olde)	C (fine-tuned)	BS1 (ER)	BS2 (SC-RG)	Real
+Nodes	6105 ± 0	6105 ± 0	6105 ± 0	6105 ± 0	6105
+Edges	7116.4 ± 13.6	7102.8 ± 6.5	7029.0 ± 0.0	7029.0 ± 0.0	7029.0
+internal (D_intra)	6328.6 ± 8.2	6291.8 ± 9.5	6227.0 ± 0.0	6227.0 ± 0.0	6227.0
+cross (D_inter)	787.8 ± 6.4	811.0 ± 3.9	802.0 ± 0.0	802.0 ± 0.0	802.0
+Mean degree	2.331 ± 0.004	2.327 ± 0.002	2.303 ± 0.000	2.303 ± 0.000	2.303
+Density	0.000382 ± 0.000001	0.000381 ± 0.000000	0.000377 ± 0.000000	0.000377 ± 0.000000	0.000377
+Components	5.4 ± 1.7	4.2 ± 2.4	577.6 ± 13.1	1.0 ± 0.0	1.0
+GCC	0.0097 ± 0.0017	0.0097 ± 0.0014	0.0663 ± 0.0031	0.0138 ± 0.0014	0.0115
+APL	31.11 ± 0.86	31.51 ± 0.97	29.42 ± 1.51	27.62 ± 1.10	40.69
+RE_GCC (lower better)	0.1939 ± 0.0634	0.1750 ± 0.0860	4.7727 ± 0.2725	0.1988 ± 0.1249	0.0000
+degW (lower better)	0.1019 ± 0.0063	0.0248 ± 0.0024	0.5561 ± 0.0065	0.3278 ± 0.0051	0.0000
+RE_APL (lower better)	0.2355 ± 0.0210	0.2257 ± 0.0238	0.2770 ± 0.0370	0.3213 ± 0.0271	0.0000
+
+oldenburg k=7, whole graph; seeds per column: B_v3_s80-B_deg=5, Cft_v3_s80-C_deg=5, BS1=5, BS2=5; mean and sample std (ddof=1) across seeds, i.e. sampling noise only
+
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/syn_final/syn_summary.tsv, syn_per_seed.tsv, syn_table.tex
+
+== oldenburg k=7, test part: the subgraph on the 63 held-out test supernodes
+Metric	B (Lux -> Olde)	C (fine-tuned)	BS1 (ER)	BS2 (SC-RG)	Real
+Nodes	1152 ± 0	1152 ± 0	1152 ± 0	1152 ± 0	1152
+Edges	1197.6 ± 6.0	1199.4 ± 7.3	1183.0 ± 0.0	1183.0 ± 0.0	1183.0
+internal (D_intra)	1164.2 ± 6.1	1164.8 ± 8.0	1149.0 ± 0.0	1149.0 ± 0.0	1149.0
+cross (D_inter)	33.4 ± 0.5	34.6 ± 0.9	34.0 ± 0.0	34.0 ± 0.0	34.0
+Mean degree	2.079 ± 0.010	2.082 ± 0.013	2.054 ± 0.000	2.054 ± 0.000	2.054
+Density	0.001806 ± 0.000009	0.001809 ± 0.000011	0.001784 ± 0.000000	0.001784 ± 0.000000	0.001784
+Components	45.2 ± 0.4	44.0 ± 1.2	189.4 ± 11.7	42.0 ± 0.0	42.0
+GCC	0.0084 ± 0.0053	0.0104 ± 0.0028	0.0812 ± 0.0125	0.0132 ± 0.0049	0.0095
+APL	11.43 ± 1.28	10.66 ± 0.54	6.39 ± 0.60	9.02 ± 0.28	11.48
+RE_GCC (lower better)	0.4368 ± 0.2960	0.2520 ± 0.1253	7.5088 ± 1.3091	0.4415 ± 0.4535	0.0000
+degW (lower better)	0.1257 ± 0.0171	0.0385 ± 0.0113	0.4694 ± 0.0265	0.2097 ± 0.0200	0.0000
+RE_APL (lower better)	0.0807 ± 0.0652	0.0716 ± 0.0471	0.4436 ± 0.0519	0.2146 ± 0.0245	0.0000
+
+oldenburg k=7, test part: the subgraph on the 63 held-out test supernodes; seeds per column: B_v3_s80-B_deg=5, Cft_v3_s80-C_deg=5, BS1=5, BS2=5; mean and sample std (ddof=1) across seeds, i.e. sampling noise only
+
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/syn_final/syn_summary_test.tsv, syn_per_seed_test.tsv, syn_table_test.tex
+Error	B (Lux -> Olde)	C (fine-tuned)	BS1 (ER)	BS2 (SC-RG)
+RE mean degree (%)	1.24 ± 0.19	1.05 ± 0.09	0.00 ± 0.00	0.00 ± 0.00
+RE density (%)	1.24 ± 0.19	1.05 ± 0.09	0.00 ± 0.00	0.00 ± 0.00
+RE components (%)	440.00 ± 167.33	320.00 ± 238.75	57660.00 ± 1312.63	0.00 ± 0.00
+RE_GCC (%)	19.39 ± 6.33	17.50 ± 8.60	477.27 ± 27.25	19.88 ± 12.49
+degW	0.1020 ± 0.0063	0.0248 ± 0.0024	0.5561 ± 0.0065	0.3278 ± 0.0051
+RE_APL (%)	23.55 ± 2.10	22.57 ± 2.39	27.70 ± 3.70	32.13 ± 2.72
+
+whole graph; seeds per column: B (Lux -> Olde)=5, C (fine-tuned)=5, BS1 (ER)=5, BS2 (SC-RG)=5; each error computed per seed, then mean and sample std (ddof=1)
+
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/syn_final/syn_re_summary.tsv
+== workbook
+  D_intra Luxembourg: 12 rows from D_intra/tables/final/repeats_summary_A.tsv
+  D_intra Oldenburg: 12 rows from D_intra/tables/final/repeats_summary.tsv
+  D_inter Luxembourg: 8 rows from D_inter/tables/final/pairs_summary_A_final.tsv
+  D_inter Oldenburg: 8 rows from D_inter/tables/final/pairs_summary_final.tsv
+  Full graph: 8 rows from D_inter/tables/syn_final/syn_re_summary.tsv
+wrote /home/jamie/Projects/Placement/results/final_tables.xlsx

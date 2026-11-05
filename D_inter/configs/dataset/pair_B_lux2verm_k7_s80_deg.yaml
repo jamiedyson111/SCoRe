@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# B: A's model (pair_lux_s80_deg) -> the 2881 Vermont test pairs. c_ij = [n_i, n_j, w_ij, r_{i->j}, r_{j->i}].
+pairs_file: 'pairs_inter_B_lux2verm_k7_s80_deg.pt'

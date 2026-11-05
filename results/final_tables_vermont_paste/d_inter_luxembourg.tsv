@@ -1,0 +1,7 @@
+Metric	Real	A
+Cross density (mean)	0.00669	0.00670 ± 0.00001
+Cross density (std)	0.00408	0.00414 ± 0.00004
+D_out (mean)	0.0723	0.0722 ± 0.0001
+D_out (std)	0.2613	0.2613 ± 0.0003
+Degree dist. vs real (W1)	0.00000	0.00029 ± 0.00012
+Out-degree profile E_r (i<->j)	0.0000	0.0040 ± 0.0002

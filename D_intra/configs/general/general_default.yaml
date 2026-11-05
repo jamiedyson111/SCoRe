@@ -7,6 +7,9 @@ gpus: 1                     # Multi-gpu is not implemented on this branch
 
 resume: null            # If resume, path to ckpt file from outputs directory in main directory
 test_only: null         # Use absolute path
+finetune_from: null     # Absolute path to a checkpoint whose weights START a new training run
+                        # (D_intra config C: A's model, fine-tuned on Oldenburg). Unlike resume,
+                        # the optimiser, epoch counter and run directory are fresh.
 
 check_val_every_n_epochs: 5
 sample_every_val: 4

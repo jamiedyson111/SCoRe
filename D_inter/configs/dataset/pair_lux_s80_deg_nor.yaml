@@ -1,0 +1,6 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# The no-r ablation of pair_lux_s80_deg (A, and B's training data): internal-degree X_i,
+# condition c_ij = [n_i, n_j, w_ij] only (dataprep/make_nor_pairs.py).
+pairs_file: 'pairs_inter_luxembourg_osm_k7_s80_deg_nor.pt'

@@ -1,0 +1,11 @@
+Metric	A v3 (hops + centroid) s0	A v3 (hops + centroid) s1	A v3 (hops + centroid) s2	A v3 (hops + centroid) s3	A v3 (hops + centroid) s4
+Degree (median)	2.0	2.0	2.0	2.0	2.0
+Degree (mean)	1.8847	1.8842	1.8828	1.8853	1.8889
+Degree (std)	0.5595	0.5611	0.5643	0.5607	0.5625
+Connected (%)	97.90	98.13	97.33	97.16	98.36
+Acyclic (%)	86.50	86.50	86.50	85.71	84.63
+Components (mean)	1.0210	1.0187	1.0272	1.0289	1.0164
+Edge-count MAE	0.1401	0.1310	0.1299	0.1350	0.1407
+Degree dist. vs real (W1)	0.0095	0.0092	0.0042	0.0075	0.0101
+Shortest-path W1	0.1119	0.1275	0.1075	0.1323	0.0956
+Hop error E_h	0.0425	0.0420	0.0459	0.0430	0.0404

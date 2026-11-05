@@ -1,0 +1,23 @@
+Quantity	oldenburg K=7	luxembourg K=7
+n	6105	114599
+m	7029	119666
+K	7	7
+M (supernodes)	317	8815
+M / n	0.0519247	0.0769204
+bound n / (floor(K/2)+1)	1526.25	28649.8
+M <= bound	yes	yes
+supernode size median	15	11
+supernode size mean	19.2587	13.0005
+b = max n_i	79	71
+m_c = |E_c| (coarse edges)	552	10902
+m_c / m	0.0785318	0.0911036
+D_intra: sum n_i^2	178179	1864681
+bound n*b	482295	8136529
+sum n_i^2 / (n*b)	0.36944	0.229174
+D_inter: sum over E_c of (n_i+n_j)^2	1829106	11999322
+bound 4*m_c*b^2	13780128	219827928
+sum (n_i+n_j)^2 / (4 m_c b^2)	0.132735	0.0545851
+full-graph dense: n^2	37271025	13132930801
+sum n_i^2 / n^2	0.00478063	0.000141985
+sum (n_i+n_j)^2 / n^2	0.0490758	0.000913682
+T (reverse diffusion steps)	500	500

@@ -12,15 +12,16 @@ Scores generated cross blocks B_ij against the real ones.
 ## Main table
 
 ```bash
-python transfer_summary.py --configs B C BS1 BS2        # Oldenburg (276 test pairs)
-python transfer_summary.py --configs A A_BS1 A_BS2      # Luxembourg (1091 test pairs)
+python transfer_summary.py --configs B C BS1 BS2        # Oldenburg (187 test pairs)
+python transfer_summary.py --configs A A_BS1 A_BS2      # Luxembourg (3998 test pairs)
 ```
 
-- **Input:** `results/samples/D_inter/transfer/<CFG>_s0.pt … _s4.pt`, scored against the
-  test split of `data/pair_lux/raw/pairs_inter_{B,C}_lux2olde_k7.pt` (Oldenburg)
-  or `pairs_inter_luxembourg_osm_k7.pt` (A). B and C are checked to be the same
-  276 pairs, and each block to match its test pair (sn_i, sn_j, n_i, n_j).
-- **Output:** `../results/D_inter/tables/transfer/pairs_summary.tsv` (A:
+- **Input:** `results/samples/D_inter/s80/<CFG>_s0.pt … _s4.pt`, scored against the
+  test split of `data/pair_lux/raw/pairs_inter_{B,C}_lux2olde_k7_s80.pt` (Oldenburg)
+  or `pairs_inter_luxembourg_osm_k7_s80.pt` (A): every pair touching a test
+  supernode. B and C are checked to be the same 187 pairs, and each block to
+  match its test pair (sn_i, sn_j, n_i, n_j). The insides L_i, L_j are the real ones.
+- **Output:** `results/D_inter/tables/s80/pairs_summary.tsv` (A:
   `pairs_summary_A.tsv`) and `pairs_per_seed*.tsv`.
 - A new method is added to `PAIRS` and `LABELS` at the top of the script.
 

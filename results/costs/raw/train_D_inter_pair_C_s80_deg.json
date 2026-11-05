@@ -1,0 +1,20 @@
+{
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "host": "bear-pg0102u05a.bear.cluster",
+  "slurm_job_id": "59473279",
+  "time": "2026-10-28 23:04:34",
+  "name": "pair_C_s80_deg",
+  "dataset": "pairs_inter_C_lux2olde_k7_s80_deg.pt",
+  "batch_size": 32,
+  "diffusion_steps": 500,
+  "finetune_from": "/rds/projects/c/chenhp-graphsyn/D_inter/outputs/2026-10-28/19-04-14-pair_lux_s80_deg/checkpoints/pair_lux_s80_deg/last.ckpt",
+  "phase": "train",
+  "n_train": 362,
+  "fit_s": 1653.1,
+  "train_s": 1635.8,
+  "val_s": 12.8,
+  "epochs": 100,
+  "s_per_epoch": 16.36,
+  "peak_alloc_mb": 19711.4,
+  "peak_reserved_mb": 80464.0
+}

@@ -67,6 +67,7 @@ from src import utils                                              # noqa: E402,
 from metrics.abstract_metrics import TrainAbstractMetricsDiscrete  # noqa: E402
 from diffusion_model_discrete import DiscreteDenoisingDiffusion    # noqa: E402
 from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures  # noqa: E402
+import costlog                                                     # noqa: E402
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
@@ -117,6 +118,9 @@ def small_block(n, rho_in):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
+    # +sample_batch=N overrides the batch (default 32, which the Oldenburg runs used).
+    global BATCH
+    BATCH = int(cfg.get('sample_batch', BATCH))
     assert cfg.general.test_only, 'pass general.test_only="\'/abs/path/to/ckpt\'"'
     assert cfg.get('release'), "pass +release=/abs/path/to/release_<graph>_k<k>.pt"
 
@@ -210,10 +214,13 @@ def main(cfg: DictConfig):
         modelled, tiny = modelled[:limit], []
         print(f"LIMIT: {limit} supernodes only -- for testing, do not assemble")
 
+    runs = []
     for seed, out_path in jobs:
         print(f"\nseed {seed} -> {out_path}")
         seed_all(seed)
-        out = sample_release(model, modelled, tiny, blob, cols, device)
+        with costlog.Measure() as m:
+            out = sample_release(model, modelled, tiny, blob, cols, device)
+        runs.append({'seed': seed, **m.record})
         result = {
             'graph': release['graph'], 'k': release['k'],
             'checkpoint': str(cfg.general.test_only),
@@ -230,6 +237,12 @@ def main(cfg: DictConfig):
         print(f"  generated {gen_m} internal edges, release describes {rel_m} "
               f"({100.0 * gen_m / max(rel_m, 1):.1f}%)")
         print(f"wrote {out_path}")
+    # Whole-graph inference, D_intra's part: every supernode of the release, per
+    # seed -> clusters_<graph>_k<k>_<tag>_cost.json beside the outputs (costlog.py)
+    costlog.write(f"{stem}_{cfg.get('tag') or 'single'}_cost.json", {
+        **costlog.safe_context(cfg, phase='full_graph_intra', what='D_intra, every supernode',
+                          n_items=len(modelled), n_filled=len(tiny), sample_batch=BATCH,
+                          limit=limit or None), 'runs': runs})
 
 
 def sample_release(model, modelled, tiny, blob, cols, device):

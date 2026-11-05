@@ -1,0 +1,7 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# C: A's model FINE-TUNED on the Oldenburg training pairs (true X_i, X_j) -> test
+# Oldenburg. The file keeps A's condition statistics and edge marginal; train with
+#   sbatch scripts/run_pair.sh pair_C_lux2olde_k7_s80_deg pair_C_s80_deg <A's last.ckpt>
+pairs_file: 'pairs_inter_C_lux2olde_k7_s80_deg.pt'

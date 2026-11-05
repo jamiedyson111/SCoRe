@@ -34,7 +34,10 @@ train:
     # 8176-vs-5.4M-params ratio that drives the overfit, so do not expect the
     # elbow to move far from 180; if it does, raise this rather than trusting a
     # checkpoint at the boundary.
-    n_epochs: 250
+    # October 2026: no validation split any more, so the FINAL checkpoint is used
+    # and the training length is the only guard against the overfitting above.
+    # 180 = the measured val/cross_CE minimum of the Luxembourg model (epoch 179).
+    n_epochs: 180
     batch_size: 32                # combined graphs, up to 122 nodes -- E is dense
     save_model: True
 model:

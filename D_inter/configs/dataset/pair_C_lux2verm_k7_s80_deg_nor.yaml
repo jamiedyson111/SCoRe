@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# The no-r ablation of C on Vermont: A-no-r's model fine-tuned on Vermont train. sbatch scripts/run_pair.sh pair_C_lux2verm_k7_s80_deg_nor pair_C_verm_s80_deg_nor pair_lux_s80_deg_nor
+pairs_file: 'pairs_inter_C_lux2verm_k7_s80_deg_nor.pt'

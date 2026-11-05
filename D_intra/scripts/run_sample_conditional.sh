@@ -16,37 +16,28 @@
 # is SEPARATE from training and needs a trained checkpoint. Use it to redo the
 # sampling of an already-trained configuration without paying for training again.
 #
-#   sbatch scripts/run_sample_conditional.sh B                     # newest transfer_B run
-#   sbatch scripts/run_sample_conditional.sh B /abs/path/epoch=N.ckpt
-#   sbatch scripts/run_sample_conditional.sh C_v3                  # newest transfer_C_olde_v3 run
-#   sbatch scripts/run_sample_conditional.sh --repeats 5 B         # 5 seeded runs, one job
+#   sbatch scripts/run_sample_conditional.sh --repeats 5 B_v3      # 5 seeded runs, one job
+#   sbatch scripts/run_sample_conditional.sh --repeats 5 C_v3
+#   sbatch scripts/run_sample_conditional.sh B_v3 /abs/path/last.ckpt   # explicit checkpoint
 #
 # --repeats N samples the test split N times (seeds 0..N-1) from the one loaded
 # checkpoint and writes conditional_samples_s<seed>.txt for each, into a run
-# directory suffixed _x<N> so it cannot be mistaken for a single-run sample.
-# evaluation/repeat_summary.py turns them into median / std per metric.
+# directory suffixed _x<N>. evaluation/repeat_summary.py turns them into mean / std.
+# It is an ARGUMENT, not an environment variable: BlueBEAR's job-submit plugin
+# does not carry the submitting shell's environment into the job.
 #
-# It is an ARGUMENT, not an environment variable, on purpose: BlueBEAR's
-# job-submit plugin does not carry the submitting shell's environment into the
-# job. `REPEATS=5 sbatch ...` was tried on 2026-10-06 and every job silently
-# sampled once.
-#   sbatch scripts/run_sample_conditional.sh legacy                # the old cluster_lux model
+# The configuration fixes both the dataset (whose test split is sampled) and the
+# model (the newest transfer_<A|C>..._s80 run, at its final checkpoint):
 #
-# The configuration name is required because it fixes BOTH the checkpoint and the
-# dataset, and those two must agree on CONDITION WIDTH or the run dies with a
-# shape error on the first batch:
+#   A   Luxembourg model, Luxembourg test supernodes (1763)
+#   B   Luxembourg model, Oldenburg test supernodes (63)
+#   C   Luxembourg + Oldenburg model, the same 63
+#   Cft A's model fine-tuned on the 254 Oldenburg training supernodes, the same 63
+#   O_uncond  plain DiGress trained on Oldenburg alone (254), the same 63
 #
-#   A/B/C                   10-dim [n, rho_in, k, h1..h7]   width 22
-#   *_nohop                  3-dim [n, rho_in, k]           width 15
-#   legacy cluster_lux       3-dim, and predates the k-MIS fix
-#
-# The private graph is Oldenburg at k=7. A and B were trained on Luxembourg
-# alone, so the existing transfer_A / transfer_B checkpoints are the Oldenburg
-# models: only B's test split changed. C trains on Oldenburg too, so its runs are
-# named transfer_C_olde and must exist (run_transfer.sh C) before C is sampled.
-#
-# Up to 882 test supernodes x 500 denoising steps. 2h is generous; the Oldenburg
-# test split is 160 supernodes and finishes in minutes.
+# with any of _nohop (condition [n, rho_in, k]) or _uncond (no condition: plain
+# DiGress, size n_i only) and _v3 / _centroid / _hopmlp.
+# Split: 80/20 by supernode (data/splits/), no validation split.
 
 set -euo pipefail
 
@@ -61,6 +52,16 @@ ROOT=/rds/projects/c/chenhp-graphsyn/D_intra
 # DATASET fixes which conditions are fed in; NAME fixes which checkpoint is used.
 # They are separate variables because B deliberately pairs the Oldenburg dataset
 # with the checkpoint trained before Oldenburg existed -- see B below.
+# --graph G (first argument): the private graph. oldenburg (default) or vermont;
+# Vermont's datasets are tagged lux2verm and its own runs carry _verm in their name,
+# so they never collide with Oldenburg's. The Luxembourg models (A, and B's) are shared.
+GRAPH=oldenburg
+if [ "${1:-}" = "--graph" ]; then GRAPH="${2:?--graph needs a name}"; shift 2; fi
+case "$GRAPH" in
+    oldenburg) GTAG=lux2olde; GSFX=""; SB=() ;;
+    vermont)   GTAG=lux2verm; GSFX=_verm; SB=(+sample_batch=128) ;;   # 17x the items: bigger batches
+    *) echo "ERROR: unknown --graph $GRAPH (oldenburg | vermont)" >&2; exit 1 ;;
+esac
 REPEATS=1
 if [ "${1:-}" = "--repeats" ]; then
     REPEATS="${2:?--repeats needs a count}"
@@ -78,57 +79,42 @@ case "$CFG" in
     *_hopmlp)   SFX=_hopmlp;   V3=(model.hop_embed_dim=1) ;;
 esac
 CFG="${CFG%$SFX}"
-# B points the Oldenburg dataset at the EXISTING transfer_B checkpoint, and that
-# is correct rather than a shortcut. B trains and validates on Luxembourg only,
-# so swapping the private graph changes B's TEST split and nothing else -- same
-# training records, same standardisation statistics, same weights (checked
-# against pairs_B_lux2minn_k7.pt on 2026-10-05). A is the same story with an
-# unchanged test split too. C's training set contains Oldenburg clusters, so
-# transfer_C_olde must be trained with run_transfer.sh before it is sampled here.
-case "$CFG" in
-    A|B)    DATASET="cluster_${CFG}_lux2olde_k7";        NAME="transfer_$CFG" ;;
-    C)      DATASET="cluster_C_lux2olde_k7";             NAME="transfer_C_olde" ;;
-    A_nohop|B_nohop)
-            DATASET="cluster_${CFG%_nohop}_lux2olde_k7_nohop"
-            NAME="transfer_$CFG" ;;
-    C_nohop) DATASET="cluster_C_lux2olde_k7_nohop";      NAME="transfer_C_olde_nohop" ;;
-
-    legacy) DATASET="cluster_lux";                       NAME="cluster_lux" ;;
-    *) echo "usage: sbatch scripts/run_sample_conditional.sh CFG [CKPT]" >&2
-       echo "  CFG = {A|B|C}[_nohop] | legacy, optionally + _v3|_centroid|_hopmlp" >&2
+# 80/20 SUPERNODE SPLIT (October 2026, data/splits/), no validation split. There
+# are two trained models per variant: the Luxembourg model (run name
+# transfer_A*_s80) and C (transfer_C*_s80). A and B both use the Luxembourg model
+# -- B's training data IS A's -- and differ only in the test set: A tests on
+# Luxembourg's held-out supernodes, B on Oldenburg's.
+BASE="${CFG%_nohop}"
+BASE="${BASE%_uncond}"
+NOHOP="${CFG#$BASE}"                    # "", "_nohop" or "_uncond" (no condition)
+case "$BASE" in
+    A|B) MODEL=A ;;
+    C)   MODEL=C ;;
+    Cft) MODEL=Cft ;;                   # C fine-tuned from A on Oldenburg train
+    O)   MODEL=O ;;                     # O_uncond: plain DiGress on Oldenburg alone
+    *) echo "usage: sbatch scripts/run_sample_conditional.sh [--repeats N] CFG [CKPT]" >&2
+       echo "  CFG = {A|B|C|Cft}[_nohop|_uncond], optionally + _v3|_centroid|_hopmlp; or O_uncond" >&2
        exit 1 ;;
 esac
-
-NAME="$NAME$SFX"
+DATASET="cluster_${BASE}_${GTAG}_k7_s80${NOHOP}"
+# A (and B) use the shared Luxembourg model; Cft and O were trained on the private graph.
+MSFX=""; case "$MODEL" in Cft|O) MSFX="$GSFX" ;; esac
+NAME="transfer_${MODEL}${NOHOP}${SFX}${MSFX}_s80"
 CFG="$CFG$SFX"
 CKPT="${2:-}"
 
 if [ -z "$CKPT" ]; then
-    # Take the NEWEST run directory for this configuration, then the OLDEST
-    # checkpoint inside it. Both halves matter, and the first half is why this
-    # script exists in its current form:
-    #
-    # A configuration can have several dated run directories -- the 11 August
-    # jobs crashed at epoch 29 and were resubmitted on the 12th. Globbing
-    # outputs/*/*$NAME*/ across all of them and taking `ls -tr | head -1` reaches
-    # into the OLDEST run, which is how transfer_A and transfer_B came to be
-    # sampled from epoch=9.ckpt of the crashed jobs while their finished
-    # 200-epoch runs sat unused. It fails silently: plausible graphs, undertrained
-    # model. Same fix as run_transfer.sh.
-    #
-    # "-$NAME/" with nothing after it matches the hydra run directory and not the
-    # *_sample directories that this script and run_transfer.sh create.
-    #
-    # Within the chosen run, oldest-first: validation converges by about epoch 10
-    # and then wanders (A ranges 88-106 after that), so the earliest surviving
-    # top-5 checkpoint is as defensible as any and avoids picking the single
-    # lowest point on a noisy curve. last.ckpt is deliberately avoided.
+    # The newest run directory of the model, at its FINAL checkpoint: there is no
+    # validation split to choose an epoch by, so training runs a fixed length
+    # and the last epoch is the model. "-$NAME/" with nothing after it matches the
+    # training run, not the *_sample directories.
     RUNDIR=$(ls -td "$ROOT"/outputs/*/*-"$NAME"/ 2>/dev/null | head -1 || true)
     if [ -z "$RUNDIR" ]; then
-        echo "ERROR: no run directory for $NAME under $ROOT/outputs" >&2
+        echo "ERROR: no run directory for $NAME under $ROOT/outputs -- train it first:" >&2
+        echo "       sbatch scripts/run_transfer.sh ${MODEL}${NOHOP}${SFX}" >&2
         exit 1
     fi
-    CKPT=$(ls -tr "${RUNDIR%/}"/checkpoints/"$NAME"/epoch=*.ckpt 2>/dev/null | head -1 || true)
+    CKPT=$(ls -t "${RUNDIR%/}"/checkpoints/"$NAME"/last*.ckpt 2>/dev/null | head -1 || true)
     echo "run dir:    $RUNDIR"
 fi
 
@@ -178,13 +164,14 @@ cd "$ROOT/src"
 # From $CFG, not $NAME, and tagged _olde: B sampled on Oldenburg shares its
 # checkpoint (hence its NAME) with B sampled on Minnesota, and the two must not be
 # confused when the newest conditional_samples.txt is collected.
-SAMPLE_NAME="transfer_${CFG}_olde_sample"
+SAMPLE_NAME="transfer_${CFG}${GSFX}_s80_sample"
 REP_ARGS=()
 if [ "$REPEATS" -gt 1 ]; then
     SAMPLE_NAME="${SAMPLE_NAME}_x${REPEATS}"
     REP_ARGS=("+repeats=$REPEATS")
 fi
 python3 sample_conditional.py \
+    ${SB[@]+"${SB[@]}"} \
     dataset="$DATASET" \
     +experiment=cluster_lux \
     ${V3[@]+"${V3[@]}"} \

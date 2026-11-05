@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# B: the A model (train DBLP) -> test Collab, DBLP standardisation; no condition; every supernode with n >= 3. extraction/make_partition_datasets.py
+pairs_file: 'pairs_B_dblp2coll_k3_s80_uncond.pt'

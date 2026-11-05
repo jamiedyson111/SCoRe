@@ -24,6 +24,10 @@ class AbstractDataModule(LightningDataset):
         for loader in [self.train_dataloader(), self.val_dataloader()]:
             for data in loader:
                 unique, counts = torch.unique(data.batch, return_counts=True)
+                # Grow past max_nodes_possible rather than fault: DBLP / ogbl-collab
+                # pairs reach 600 nodes. The result is trimmed to the largest size below.
+                if int(counts.max()) >= len(all_counts):
+                    all_counts = torch.cat([all_counts, torch.zeros(int(counts.max()) + 1 - len(all_counts))])
                 for count in counts:
                     all_counts[count] += 1
         max_index = max(all_counts.nonzero())

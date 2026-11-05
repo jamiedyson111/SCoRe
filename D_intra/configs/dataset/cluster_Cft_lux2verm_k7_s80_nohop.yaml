@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C as a FINE-TUNE without the hop histogram: A_nohop's model trained further on Vermont train -> test Vermont.
+pairs_file: 'pairs_Cft_lux2verm_k7_s80_nohop.pt'

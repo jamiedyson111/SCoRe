@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# C: A's model FINE-TUNED on the 5069 Vermont training pairs (A's statistics and edge marginal kept) -> Vermont test pairs. sbatch scripts/run_pair.sh pair_C_lux2verm_k7_s80_deg pair_C_verm_s80_deg pair_lux_s80_deg
+pairs_file: 'pairs_inter_C_lux2verm_k7_s80_deg.pt'

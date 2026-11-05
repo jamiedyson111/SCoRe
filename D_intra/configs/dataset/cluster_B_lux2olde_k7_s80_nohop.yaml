@@ -1,0 +1,6 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# B: train Luxembourg -> test Oldenburg (the same training data as A, so A's model).
+# 80/20 train/test by supernode (data/splits/), no validation split; condition without the hop histogram.
+pairs_file: 'pairs_B_lux2olde_k7_s80_nohop.pt'

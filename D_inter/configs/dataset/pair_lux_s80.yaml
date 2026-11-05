@@ -1,0 +1,7 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# A (and B's training data): Luxembourg pairs, V1 condition [n_i, rho_i, n_j, rho_j, w_ij, k].
+# 80/20 train/test by SUPERNODE, shared with D_intra (D_intra/data/splits/): train pairs
+# have both supernodes in training, test pairs touch a test supernode. No validation split.
+pairs_file: 'pairs_inter_luxembourg_osm_k7_s80.pt'

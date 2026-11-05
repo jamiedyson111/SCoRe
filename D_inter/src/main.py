@@ -17,6 +17,7 @@ from metrics.abstract_metrics import TrainAbstractMetricsDiscrete, TrainAbstract
 from diffusion_model import LiftedDenoisingDiffusion
 from diffusion_model_discrete import DiscreteDenoisingDiffusion
 from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
+from costlog import CostCallback
 
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
@@ -277,6 +278,19 @@ def main(cfg: DictConfig):
     else:
         model = LiftedDenoisingDiffusion(cfg=cfg, **model_kwargs)
 
+    # FINE-TUNING (D_inter config C): start from another run's trained weights,
+    # with a fresh optimiser and epoch count, on this run's dataset. strict: the
+    # architecture, condition width and node features must be the pre-trained
+    # model's, or this stops here rather than training a half-loaded network.
+    if cfg.general.get('finetune_from') and not cfg.general.test_only:
+        try:
+            ckpt = torch.load(cfg.general.finetune_from, map_location='cpu', weights_only=False)
+        except TypeError:                           # torch < 2.0 has no weights_only
+            ckpt = torch.load(cfg.general.finetune_from, map_location='cpu')
+        model.load_state_dict(ckpt['state_dict'], strict=True)
+        print(f"fine-tuning from {cfg.general.finetune_from} "
+              f"(epoch {ckpt.get('epoch')}): lr {cfg.train.lr}, {cfg.train.n_epochs} epochs")
+
     callbacks = []
     if cfg.train.save_model:
         checkpoint_callback = ModelCheckpoint(dirpath=f"checkpoints/{cfg.general.name}",
@@ -292,6 +306,10 @@ def main(cfg: DictConfig):
     if cfg.train.ema_decay > 0:
         ema_callback = utils.EMA(decay=cfg.train.ema_decay)
         callbacks.append(ema_callback)
+
+    # Runtime and peak GPU memory of the fit -> <run dir>/cost_train.json (costlog.py)
+    if not cfg.general.test_only:
+        callbacks.append(CostCallback(cfg))
 
     name = cfg.general.name
     if name == 'debug':

@@ -9,7 +9,14 @@ would publish: the coarse graph and per-supernode summary statistics, never the
 fine structure inside a supernode or between two supernodes.
 
     supernodes   {sn, n, rho_in, centre, h, y_raw_intra, nodes}
-    pairs        {sn_i, sn_j, w}          -- one per CONNECTED supernode pair
+    pairs        {sn_i, sn_j, n_i, n_j, w, r_ij, r_ji}   -- one per CONNECTED supernode pair
+
+r_ij / r_ji are D_inter's cross-degree profiles r_{i->j}, r_{j->i}: the fraction of
+V_i (V_j) nodes with 0, 1, 2, 3, 4+ edges into the other supernode. They are part
+of D_inter's condition c_ij = [n_i, n_j, w_ij, r_{i->j}, r_{j->i}], and like w_ij
+they describe the block being generated, so only the release can supply them.
+Adding them consumes no randomness: supernodes, pairs and their orientation are
+those of every earlier release.
 
 `h` is the k-bin hop histogram D_intra is conditioned on: the fraction of a
 supernode's non-centre members at shortest-path distance 1..k from its centre.
@@ -66,10 +73,19 @@ from kmis import orderings, reduce, sample         # noqa: E402
 INTRA_COND = ["n", "rho_in", "k", "h"]
 # The condition D_inter was trained on, in order. Must match COND_NAMES in
 # D_inter/dataprep/make_pair_blocks.py.
-INTER_COND_NAMES = ['n_i', 'rho_i', 'n_j', 'rho_j', 'w_ij', 'k']
+R_BINS = 5               # r_0 .. r_3, r_{>=4}: make_pair_blocks.R_BINS
+_R = ['0', '1', '2', '3', '4+']
+INTER_COND_NAMES = (['n_i', 'n_j', 'w_ij'] + [f'rij{b}' for b in _R]
+                    + [f'rji{b}' for b in _R])
 
 MIN_N_TRAINED = 3        # what the training sets dropped; recorded, not applied
 MAX_COMBINED_TRAINED = 128
+
+
+def out_degree_hist(rows, n_i, n_bins=R_BINS):
+    """make_pair_blocks.out_degree_hist: fraction of n_i nodes with 0..n_bins-1+ entries in rows."""
+    d = np.bincount(rows, minlength=n_i)[:n_i]
+    return np.bincount(np.clip(d, 0, n_bins - 1), minlength=n_bins) / n_i
 
 
 def density(n, m):
@@ -128,9 +144,10 @@ def main():
     starts = np.searchsorted(cluster[order], np.arange(c))
     ends = np.searchsorted(cluster[order], np.arange(c), side='right')
 
-    supernodes, rows, true_clusters = {}, {}, {}
+    supernodes, rows, members, true_clusters = {}, {}, {}, {}
     for ci in range(c):
         mem = order[starts[ci]:ends[ci]]
+        members[ci] = mem
         rows[ci] = A[mem]                                   # (n_i, n_fine) csr
         n_i = len(mem)
         sub = sp.coo_matrix(rows[ci][:, mem])
@@ -189,10 +206,14 @@ def main():
         if rng.random() < 0.5:
             ci, cj = cj, ci
 
+        B = rows[ci][:, members[cj]].tocoo()            # the real cross block, (n_i, n_j)
+        assert B.nnz == w
         pairs.append({
             'sn_i': ci, 'sn_j': cj,
             'n_i': supernodes[ci]['n'], 'n_j': supernodes[cj]['n'],
             'w': w,
+            'r_ij': torch.tensor(out_degree_hist(B.row, len(members[ci])), dtype=torch.float),
+            'r_ji': torch.tensor(out_degree_hist(B.col, len(members[cj])), dtype=torch.float),
         })
 
     blob = {

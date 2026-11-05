@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# Plain DiGress, no condition, trained from scratch on the 4418 Vermont train supernodes -> test on the 1104 Vermont test supernodes (80/20).
+pairs_file: 'pairs_O_lux2verm_k7_s80_uncond.pt'

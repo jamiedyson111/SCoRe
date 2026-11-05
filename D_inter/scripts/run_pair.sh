@@ -79,12 +79,42 @@ cd "$ROOT/src"
 # submitting shell's environment into the job, so `DATASET=... sbatch` silently
 # trained on the default. The env var is still read as a fallback for runs
 # launched some other way. NAME sets the run directory and checkpoint folder.
+#
+# FINE-TUNING (config C, the internal-degree D_inter). A third argument starts
+# from another model's weights instead of from scratch:
+#
+#   sbatch scripts/run_pair.sh pair_C_lux2olde_k7_s80_deg pair_C_s80_deg pair_lux_s80_deg
+#
+# It is a checkpoint file, or a RUN NAME resolved here, when the job starts, to
+# that run's newest last*.ckpt -- so C can be queued behind A with afterok before
+# A's checkpoint exists. Fine-tuning runs FT_EPOCHS epochs at FT_LR (A: 180 epochs
+# at 2e-4 over 6904 pairs = ~39k steps; C: 100 epochs over 362 pairs = ~1.2k steps
+# at a quarter of the rate, so the Oldenburg pairs adapt the model without
+# overwriting it). No validation split, so the final checkpoint is the C model.
 DATASET="${1:-${DATASET:-pair_lux}}"
 NAME="${2:-pair_lux}"
+FINETUNE="${3:-}"
+FT_EPOCHS=100
+FT_LR=0.00005
 echo "dataset=$DATASET  name=$NAME"
+
+EXTRA=()
+if [ -n "$FINETUNE" ]; then
+    CKPT="$FINETUNE"
+    if [ ! -f "$CKPT" ]; then
+        RUNDIR=$(ls -td "$ROOT"/outputs/*/*-"$FINETUNE"/ 2>/dev/null | head -1 || true)
+        CKPT=$(ls -t "${RUNDIR%/}"/checkpoints/"$FINETUNE"/last*.ckpt 2>/dev/null | head -1 || true)
+    fi
+    [ -n "$CKPT" ] && [ -f "$CKPT" ] || {
+        echo "ERROR: no checkpoint for '$FINETUNE' (a file, or a run name under $ROOT/outputs)" >&2
+        exit 1; }
+    echo "fine-tuning from $CKPT: $FT_EPOCHS epochs at lr $FT_LR"
+    EXTRA=("general.finetune_from='$CKPT'" "train.n_epochs=$FT_EPOCHS" "train.lr=$FT_LR")
+fi
 
 python3 main.py \
     dataset="$DATASET" \
     +experiment=pair_lux \
     general.name="$NAME" \
-    general.wandb=disabled
+    general.wandb=disabled \
+    ${EXTRA[@]+"${EXTRA[@]}"}

@@ -71,6 +71,26 @@ class NodeCycleFeatures:
         return x_cycles, y_cycles
 
 
+_LinAlgError = getattr(torch.linalg, 'LinAlgError', RuntimeError)
+
+
+def _eigh(L, vectors=True):
+    """torch.linalg.eigh / eigvalsh, retried in float64 if float32 fails to converge.
+
+    D_inter's graphs hold only the cross block (L_i, L_j enter as node features),
+    so they are almost all isolated nodes: the Laplacian has a near-n-fold zero
+    eigenvalue, and LAPACK's float32 solver gives up on it now and then ("too many
+    repeated eigenvalues", seen on CPU). float64 converges; the result is cast
+    back, so a batch that converged in float32 is unchanged.
+    """
+    f = torch.linalg.eigh if vectors else torch.linalg.eigvalsh
+    try:
+        return f(L)
+    except _LinAlgError:
+        out = f(L.double())
+        return tuple(o.type_as(L) for o in out) if vectors else out.type_as(L)
+
+
 class EigenFeatures:
     """
     Code taken from : https://github.com/Saro00/DGN/blob/master/models/pytorch/eigen_agg.py
@@ -89,14 +109,14 @@ class EigenFeatures:
         L = L * mask.unsqueeze(1) * mask.unsqueeze(2) + mask_diag
 
         if self.mode == 'eigenvalues':
-            eigvals = torch.linalg.eigvalsh(L)        # bs, n
+            eigvals = _eigh(L, vectors=False)         # bs, n
             eigvals = eigvals.type_as(A) / torch.sum(mask, dim=1, keepdim=True)
 
             n_connected_comp, batch_eigenvalues = get_eigenvalues_features(eigenvalues=eigvals)
             return n_connected_comp.type_as(A), batch_eigenvalues.type_as(A)
 
         elif self.mode == 'all':
-            eigvals, eigvectors = torch.linalg.eigh(L)
+            eigvals, eigvectors = _eigh(L)
             eigvals = eigvals.type_as(A) / torch.sum(mask, dim=1, keepdim=True)
             eigvectors = eigvectors * mask.unsqueeze(2) * mask.unsqueeze(1)
             # Retrieve eigenvalues features

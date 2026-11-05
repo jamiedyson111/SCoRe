@@ -121,6 +121,14 @@ class ClusterGraphDataModule(AbstractDataModule):
         """The source file, for the conditional sampler (conditions + normalisation)."""
         return _load_blob(os.path.join(self.root_path, 'raw', self.pairs_file))
 
+    def edge_counts(self):
+        """The file's own edge marginal when it has one: a fine-tune (config Cft) keeps
+        the marginal of the model it starts from, so its noise process is A's."""
+        blob = self.raw_blob()
+        if 'edge_marginal' in blob:
+            return torch.as_tensor(blob['edge_marginal'], dtype=torch.float)
+        return super().edge_counts()
+
 
 class ClusterDatasetInfos(AbstractDatasetInfos):
     def __init__(self, datamodule, dataset_config):

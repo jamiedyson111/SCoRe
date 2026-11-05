@@ -1,0 +1,15 @@
+Metric	B (Lux -> Olde)	C (Lux, fine-tuned on Olde -> Olde)	BS1 (ER)	BS2 (SC-RG)	Real
+Nodes	1152 ± 0	1152 ± 0	1152 ± 0	1152 ± 0	1152
+Edges	1197.6 ± 6.0	1170.8 ± 5.4	1183.0 ± 0.0	1183.0 ± 0.0	1183.0
+internal (D_intra)	1164.2 ± 6.1	1135.6 ± 5.9	1149.0 ± 0.0	1149.0 ± 0.0	1149.0
+cross (D_inter)	33.4 ± 0.5	35.2 ± 1.6	34.0 ± 0.0	34.0 ± 0.0	34.0
+Mean degree	2.079 ± 0.010	2.033 ± 0.009	2.054 ± 0.000	2.054 ± 0.000	2.054
+Density	0.001806 ± 0.000009	0.001766 ± 0.000008	0.001784 ± 0.000000	0.001784 ± 0.000000	0.001784
+Components	45.2 ± 0.4	43.6 ± 2.5	189.4 ± 11.7	42.0 ± 0.0	42.0
+GCC	0.0084 ± 0.0053	0.0068 ± 0.0018	0.0812 ± 0.0125	0.0132 ± 0.0049	0.0095
+APL	11.43 ± 1.28	11.09 ± 0.85	6.39 ± 0.60	9.02 ± 0.28	11.48
+RE_GCC (lower better)	0.4368 ± 0.2960	0.3081 ± 0.1483	7.5088 ± 1.3091	0.4415 ± 0.4535	0.0000
+degW (lower better)	0.1257 ± 0.0171	0.0566 ± 0.0082	0.4694 ± 0.0265	0.2097 ± 0.0200	0.0000
+RE_APL (lower better)	0.0807 ± 0.0652	0.0633 ± 0.0441	0.4436 ± 0.0519	0.2146 ± 0.0245	0.0000
+
+oldenburg k=7, test part: the subgraph on the 63 held-out test supernodes; seeds per column: B_v3_s80-B_deg=5, C_v3_s80-C_deg=5, BS1=5, BS2=5; mean and sample std (ddof=1) across seeds, i.e. sampling noise only

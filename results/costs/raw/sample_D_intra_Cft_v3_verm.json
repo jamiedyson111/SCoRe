@@ -1,0 +1,47 @@
+{
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "host": "bear-pg0208u25a",
+  "slurm_job_id": "60286063",
+  "time": "2026-11-01 17:33:03",
+  "name": "transfer_Cft_v3_verm_s80_sample_x5",
+  "dataset": "pairs_Cft_lux2verm_k7_s80.pt",
+  "batch_size": 64,
+  "diffusion_steps": 500,
+  "finetune_from": null,
+  "phase": "sample",
+  "what": "D_intra, test supernodes",
+  "n_items": 1104,
+  "sample_batch": 128,
+  "runs": [
+    {
+      "seed": 0,
+      "seconds": 955.14,
+      "peak_alloc_mb": 4462.6,
+      "peak_reserved_mb": 19728.0
+    },
+    {
+      "seed": 1,
+      "seconds": 951.29,
+      "peak_alloc_mb": 4462.6,
+      "peak_reserved_mb": 19728.0
+    },
+    {
+      "seed": 2,
+      "seconds": 951.03,
+      "peak_alloc_mb": 4462.6,
+      "peak_reserved_mb": 19728.0
+    },
+    {
+      "seed": 3,
+      "seconds": 950.97,
+      "peak_alloc_mb": 4462.6,
+      "peak_reserved_mb": 19728.0
+    },
+    {
+      "seed": 4,
+      "seconds": 951.0,
+      "peak_alloc_mb": 4462.6,
+      "peak_reserved_mb": 19728.0
+    }
+  ]
+}

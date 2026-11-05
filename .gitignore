@@ -10,7 +10,6 @@ logs/
 # Generated results and samples (tables in results/ are tracked)
 /results/samples/
 /results/private_inference/
-/results/competitors/
 /archive/
 
 # Vendored virtualenvs and caches
@@ -27,3 +26,6 @@ _removed_from_DiGress/
 graph-coarsening/
 k-mis-pool/
 DiGress/
+
+# Downloaded external graphs (networkrepository.com)
+/datasets_external/

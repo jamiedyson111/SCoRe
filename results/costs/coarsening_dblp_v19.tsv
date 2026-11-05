@@ -1,0 +1,16 @@
+Quantity	dblp_v19 k=2	dblp_v19 k=3
+n	7289177	7289177
+m	81929433	81929433
+k	2	3
+#components	1080652	1080652
+#supernodes M	1417178	1220367
+#supernodes with n_i >= 3	215131	124044
+n_i mean	5.14	5.97
+n_i median	1	1
+n_i 95th percentile	8	8
+n_i max	871390	2761325
+#super edges (edges between supernodes)	59246672	39093928
+#connected supernode pairs	13349277	5893745
+m_i median	0	0
+m_i mean	16.01	35.10
+check: sum m_i + super edges = m	yes	yes

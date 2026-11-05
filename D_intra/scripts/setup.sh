@@ -40,4 +40,6 @@ for _cand in "$_setup_dir" "$_setup_dir/.."; do   # setup.sh sits at $ROOT/ or $
     fi
     break
 done
+# Peak GPU memory + wall clock of every job, for Section VI-E (gpu_monitor.sh).
+[ -f "$_setup_dir/gpu_monitor.sh" ] && . "$_setup_dir/gpu_monitor.sh"
 unset _setup_dir _cand _orca

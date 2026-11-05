@@ -5,6 +5,7 @@ graph and used to reconstruct supernodes of a PRIVATE graph, so that the private
 graph's fine structure is never needed at training time.
 
     python make_transfer_datasets.py                          # Luxembourg -> Oldenburg
+    python make_transfer_datasets.py --no-cond                # plain DiGress baseline (no condition)
     python make_transfer_datasets.py --private minnesota --k-private 4   # the old private graph
     python make_transfer_datasets.py --public luxembourg --private facebook --k 7
     python make_transfer_datasets.py --k-public 7 --k-private 4    # differing localities
@@ -48,6 +49,16 @@ supernodes to 113. Two consequences, both real and both to be reported:
     being asked to do; it is not a bug, but B's result should not be read as if
     the condition were in-distribution.
 
+THE SPLIT (October 2026). Train / test only, 80 / 20 by SUPERNODE, the same
+supernodes for D_intra and D_inter: the supernode assignment is written to
+../data/splits/<graph>_k<k>_s80.json and D_inter's builders read that file, so
+D_inter trains only on pairs whose two supernodes are both training supernodes,
+and tests on every pair that touches a test supernode. There is no held-out
+validation split: models train for a fixed number of epochs and the final
+checkpoint is used. The "val" slot the training code still expects holds a small
+sample of TRAINING records (VAL_FROM_TRAIN), used for logging only -- it is not
+held-out data and selects nothing.
+
 TRAINING SET IMBALANCE. The public graph typically yields far more supernodes
 than the private one (43x here), so an unweighted union in configuration C would
 be ~99% public and C would be indistinguishable from B. OVERSAMPLE_TARGET repeats
@@ -55,12 +66,13 @@ the private training pairs to a stated share. This is repetition, not new data,
 and must be reported as such.
 """
 import argparse
+import json
 import os
 
 import numpy as np
 import torch
 
-from kmis_pairs import GRAPHS, cond_names, extract_pairs, split_records, standardise
+from kmis_pairs import GRAPHS, cond_names, extract_pairs, standardise
 
 # ===========================================================================
 DEFAULT_PUBLIC = "luxembourg"
@@ -77,17 +89,19 @@ COND = ["n", "rho_in", "k", "h"]
 # [n, rho_in, k]. Whatever the two models differ by is attributable to h alone,
 # and h is the part of the release that goes beyond the brief's [n, rho_in].
 COND_NO_HOPS = ["n", "rho_in", "k"]
+# Plain DiGress, one supernode at a time: NO condition (y has width 0). Same
+# supernodes, split and seed; the sampler still fixes each graph's size to the
+# target supernode's n_i, so this measures what the whole condition c_i adds.
+COND_NONE = []
 MIN_N = 3
 SEED = 0
 
-SPLIT_PUBLIC = (0.75, 0.15, 0.10)
-# The private graph is split toward test: configurations B and C must be scored
-# on the SAME held-out private supernodes or their numbers cannot be compared,
-# so some private data is reserved for C's training even though B never uses it.
-SPLIT_PRIVATE = (0.40, 0.10, 0.50)
-
+# Both graphs are split the same way; B and C share the private test supernodes.
+TEST_FRAC = 0.20          # 80 / 20 train / test, by supernode, no validation split
+VAL_FROM_TRAIN = 256      # training records placed in the "val" slot, logging only
 OVERSAMPLE_TARGET = 0.25
 OUT_DIR = "../data/cluster_lux/raw"
+SPLIT_DIR = "../data/splits"
 # ===========================================================================
 
 
@@ -97,6 +111,36 @@ def save(path, blob):
     tr, va, te = (len(s) for s in blob["splits"])
     print(f"  {os.path.basename(path):<30} {tr:>6} train /{va:>5} val /{te:>5} test"
           f"   ({os.path.getsize(path)/1e6:.1f} MB)")
+
+
+def split_by_supernode(recs, test_frac, seed):
+    """Train / test record lists from a seeded shuffle of the supernode ids."""
+    ids = np.array(sorted(int(r["sn"]) for r in recs))
+    np.random.default_rng(seed).shuffle(ids)
+    n_test = int(round(test_frac * len(ids)))
+    test = set(ids[len(ids) - n_test:].tolist())
+    train_recs = [r for r in recs if int(r["sn"]) not in test]
+    test_recs = [r for r in recs if int(r["sn"]) in test]
+    return train_recs, test_recs
+
+
+def write_split(graph, k, recs, test_recs, test_frac, seed, out_dir):
+    """The shared supernode split, read by D_inter's dataset builders."""
+    os.makedirs(out_dir, exist_ok=True)
+    test = sorted(int(r["sn"]) for r in test_recs)
+    train = sorted(int(r["sn"]) for r in recs if int(r["sn"]) not in set(test))
+    path = os.path.join(out_dir, f"{graph}_k{k}_s{int(round(100 * (1 - test_frac)))}.json")
+    json.dump({"graph": graph, "k": k, "seed": seed, "test_frac": test_frac,
+               "train": train, "test": test,
+               "n": {str(int(r["sn"])): int(r["n"]) for r in recs}},
+              open(path, "w"))
+    print(f"  split -> {path}: {len(train)} train / {len(test)} test supernodes")
+
+
+def val_from_train(train, n, seed):
+    """A few TRAINING records for the val slot (logging only; nothing is held out)."""
+    idx = np.random.default_rng(seed + 1).permutation(len(train))[:n]
+    return [train[i] for i in idx]
 
 
 def describe_sizes(recs):
@@ -118,13 +162,20 @@ def main():
                          "overwrite the single-k datasets or share their cache.")
     ap.add_argument("--out-dir", default=OUT_DIR)
     ap.add_argument("--tag", default=None, help="filename tag; defaults to pub2priv")
+    ap.add_argument("--test-frac", type=float, default=TEST_FRAC,
+                    help="share of supernodes held out for test (default 0.2: an 80/20 split)")
     ap.add_argument("--no-hops", action="store_true",
                     help="ablation: drop h1..hk, leaving the condition [n, rho_in, k]. "
                          "Appends _nohop to the tag so it cannot overwrite the main "
                          "datasets and gets its own processed cache.")
+    ap.add_argument("--no-cond", action="store_true",
+                    help="plain DiGress baseline: no condition at all (y of width 0); "
+                         "only the size n_i is imposed, at sampling. Appends _uncond.")
     args = ap.parse_args()
+    if args.no_hops and args.no_cond:
+        ap.error("--no-hops and --no-cond are alternatives")
 
-    cond = COND_NO_HOPS if args.no_hops else COND
+    cond = COND_NONE if args.no_cond else COND_NO_HOPS if args.no_hops else COND
     k_pub = args.k_public if args.k_public is not None else args.k
     k_priv = args.k_private if args.k_private is not None else args.k
     # One condition width for both graphs, or the two could not be fed to the same
@@ -134,9 +185,12 @@ def main():
     k_hist = max(k_pub, k_priv)
 
     ktag = f"k{k_pub}" if k_pub == k_priv else f"k{k_pub}k{k_priv}"
-    tag = args.tag or f"{args.public[:3]}2{args.private[:4]}_{ktag}"
+    pct = int(round(100 * (1 - args.test_frac)))
+    tag = args.tag or f"{args.public[:3]}2{args.private[:4]}_{ktag}_s{pct}"
     if args.no_hops and not args.tag:
         tag += "_nohop"
+    if args.no_cond and not args.tag:
+        tag += "_uncond"
     torch.manual_seed(SEED)
 
     print(f"public  = {args.public} (k={k_pub})   private = {args.private} (k={k_priv})")
@@ -158,50 +212,55 @@ def main():
         print("  This is a real property of the transfer problem (density differs), not")
         print("  an artefact -- report it alongside the results.")
 
-    pub_splits = split_records(pub, SPLIT_PUBLIC, SEED)
-    priv_splits = split_records(priv, SPLIT_PRIVATE, SEED)
-    print(f"  private split: {len(priv_splits[0])} train / {len(priv_splits[1])} val "
-          f"/ {len(priv_splits[2])} test  (B and C share this test set)\n")
+    pub_tr, pub_te = split_by_supernode(pub, args.test_frac, SEED)
+    priv_tr, priv_te = split_by_supernode(priv, args.test_frac, SEED)
+    # The split depends on the supernodes only, so the hop and no-hop datasets
+    # (and D_inter) get the same one; writing it again is harmless.
+    write_split(args.public, k_pub, pub, pub_te, args.test_frac, SEED, SPLIT_DIR)
+    write_split(args.private, k_priv, priv, priv_te, args.test_frac, SEED, SPLIT_DIR)
+    print(f"  private split: {len(priv_tr)} train / {len(priv_te)} test supernodes "
+          f"(B and C share this test set); no validation split\n")
+    pub_val = val_from_train(pub_tr, VAL_FROM_TRAIN, SEED)
 
     common = {"cond_names": names, "k": k_hist, "k_public": k_pub, "k_private": k_priv,
               "public": args.public, "private": args.private}
 
     # ---- A: train public, test public ------------------------------------
     A = dict(common, config="A", desc=f"train {args.public}, test {args.public}",
-             splits=[list(s) for s in pub_splits])
+             splits=[list(pub_tr), list(pub_val), list(pub_te)])
     mean, std, const = standardise(A["splits"][0], A["splits"])
     A.update(cond_mean=mean, cond_std=std, cond_constant=const)
     save(os.path.join(args.out_dir, f"pairs_A_{tag}.pt"), A)
 
     # ---- B: train public, test private -----------------------------------
-    # Zero private data: train AND validate on the public graph so that model
-    # selection never touches the private one. Conditions are standardised with
-    # PUBLIC statistics -- the only scale the model has seen.
+    # Zero private data: B's training records are A's exactly, so A's model is
+    # B's model. Conditions are standardised with PUBLIC statistics -- the only
+    # scale the model has seen.
     B = dict(common, config="B", desc=f"train {args.public}, test {args.private}",
-             splits=[list(pub_splits[0]), list(pub_splits[1]), list(priv_splits[2])])
+             splits=[list(pub_tr), list(pub_val), list(priv_te)])
     mean, std, const = standardise(B["splits"][0], B["splits"])
     B.update(cond_mean=mean, cond_std=std, cond_constant=const)
     save(os.path.join(args.out_dir, f"pairs_B_{tag}.pt"), B)
 
     # ---- C: train public + private, test private -------------------------
-    n_pub = len(pub_splits[0])
+    n_pub = len(pub_tr)
     reps = 1
-    if OVERSAMPLE_TARGET > 0 and priv_splits[0]:
+    if OVERSAMPLE_TARGET > 0 and priv_tr:
         want = OVERSAMPLE_TARGET / (1 - OVERSAMPLE_TARGET) * n_pub
-        reps = max(1, int(round(want / len(priv_splits[0]))))
-    priv_train = list(priv_splits[0]) * reps
-    combined = list(pub_splits[0]) + priv_train
+        reps = max(1, int(round(want / len(priv_tr))))
+    priv_train = list(priv_tr) * reps
+    combined = list(pub_tr) + priv_train
     np.random.default_rng(SEED).shuffle(combined)
 
     C = dict(common, config="C",
              desc=f"train {args.public}+{args.private}, test {args.private}",
              private_oversample_factor=reps,
-             splits=[combined, list(priv_splits[1]), list(priv_splits[2])])
+             splits=[combined, val_from_train(combined, VAL_FROM_TRAIN, SEED), list(priv_te)])
     mean, std, const = standardise(C["splits"][0], C["splits"])
     C.update(cond_mean=mean, cond_std=std, cond_constant=const)
     save(os.path.join(args.out_dir, f"pairs_C_{tag}.pt"), C)
 
-    print(f"\n  config C: {len(priv_splits[0])} private train pairs repeated x{reps} "
+    print(f"\n  config C: {len(priv_tr)} private train supernodes repeated x{reps} "
           f"-> {len(priv_train)} of {len(combined)} "
           f"({100*len(priv_train)/len(combined):.0f}% of the training set)")
 

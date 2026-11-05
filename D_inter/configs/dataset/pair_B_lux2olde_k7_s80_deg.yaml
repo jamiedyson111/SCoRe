@@ -1,0 +1,6 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# B: train Luxembourg -> test Oldenburg (A's model). Internal-degree X_i,
+# c_ij = [n_i, n_j, w_ij, r_{i->j}, r_{j->i}]. 80/20 by supernode, shared with D_intra.
+pairs_file: 'pairs_inter_B_lux2olde_k7_s80_deg.pt'

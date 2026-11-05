@@ -20,13 +20,16 @@ single-run reconstruction table:
     RE_GCC = |GCC(G) - GCC(G^)| / GCC(G)
     degW   = W1 between the degree distributions of G^ and G
     RE_APL = |APL(G) - APL(G^)| / APL(G)
+    Clustering, Orbit, Spectrum: graph_mmd.py's squared MMDs of G^ against G (the
+             DiGress statistics: local clustering coefficients, 4-node graphlet
+             orbits, normalised-Laplacian spectrum), whole graph only
 
-BS1 is assemble_syn's Random baseline (every released count honoured exactly,
-edges placed uniformly). BS2 places the same counts Chung-Lu style: each fine
-node gets one expected degree D_u drawn from public Luxembourg's degree
-distribution, and every block, internal and cross, picks its slots with
-probability proportional to D_u * D_v (baselines/uncoarsen.py). Both are drawn
-once per seed so they carry a spread too. Real is the private graph, one number. Each cell is the mean and sample std (ddof=1) across
+BS1 is Huiping's ER baseline and BS2 her SC-RG (competitors/Baseline/), run on
+every supernode and pair of the release by baselines/full_graph.py. Both honour
+every released count exactly (m_i from rho_in, w_ij). BS1 places the edges
+uniformly; BS2 builds each supernode's hop layers from h_i and each cross block's
+i-side out-degrees from r_{i->j}, measured on the real graph. Both are drawn once
+per seed so they carry a spread too. Real is the private graph, one number. Each cell is the mean and sample std (ddof=1) across
 seeds: sampling noise only, every seed uses the same trained checkpoints.
 
 Output, in --out-dir:
@@ -44,20 +47,24 @@ import numpy as np
 import torch
 from scipy.stats import wasserstein_distance
 
-from assemble_syn import (SEED, _load, assemble, load_true_graph, random_blocks,
+from assemble_syn import (SEED, _load, assemble, load_true_graph,
                           stats, supernode_of, topology)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-COMPETITORS = os.path.join(HERE, '..', '..', 'competitors')
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'baselines'))
-from uncoarsen import cross_block, internal_block, internal_edges, public_degrees  # noqa: E402
+import full_graph  # noqa: E402
+import graph_mmd  # noqa: E402
 RESULTS = os.path.join(HERE, '..', '..', 'results')
 OUT = os.path.join(RESULTS, 'private_inference')
 SAMPLES = os.path.join(RESULTS, 'samples', 'assembled')
 
-LABELS = {'B': 'B (Lux -> Olde)', 'C': 'C (Lux+Olde -> Olde)'}
-BASELINE_LABELS = {'BS1': 'BS1 (random)', 'BS2': 'BS2 (Chung-Lu)'}
-TEX_LABELS = {'B': r'B', 'C': r'C'}
+LABELS = {'B': 'B (Lux -> Olde)', 'C': 'C (joint Lux+Olde -> Olde)',
+          # the internal-degree D_inter (X_i = internal degree; C fine-tuned), run as
+          #   python syn_repeats_summary.py --configs B_v3_s80-B_deg C_v3_s80-C_deg \
+          #       --out-dir ../../results/D_inter/tables/syn_s80_deg
+          'B_deg': 'B (Lux -> Olde)', 'C_deg': 'C (Lux, fine-tuned on Olde -> Olde)'}
+BASELINE_LABELS = {'BS1': 'BS1 (ER)', 'BS2': 'BS2 (SC-RG)'}
+TEX_LABELS = {'B': r'B', 'C': r'C', 'B_deg': r'B', 'C_deg': r'C'}
 
 # (key, label, tex label, decimals). Order is the row order of both tables.
 ROWS = [('nodes',          'Nodes',               r'Nodes',                       0),
@@ -71,40 +78,30 @@ ROWS = [('nodes',          'Nodes',               r'Nodes',                     
         ('apl',            'APL',                 r'APL',                         2)]
 ERROR_ROWS = [('regcc', 'RE_GCC (lower better)', r'$RE_{GCC}$ $\downarrow$',          4),
               ('degw',  'degW (lower better)',   r'$\mathrm{deg}W$ $\downarrow$',     4),
-              ('reapl', 'RE_APL (lower better)', r'$RE_{APL}$ $\downarrow$',          4)]
-
-
-def bs2_blocks(release, pool, rng):
-    """BS2 for the whole release: one expected degree per fine node, used by every block."""
-    D = {int(s['sn']): rng.choice(pool, size=int(s['n']), replace=True)
-         for s in release['supernodes']}
-    internal = {}
-    for s in release['supernodes']:
-        sn, n = int(s['sn']), int(s['n'])
-        internal[sn] = torch.as_tensor(
-            internal_block(n, internal_edges(s['rho_in'], n), rng, D[sn]), dtype=torch.long)
-    blocks = {}
-    for p in release['pairs']:
-        si, sj = int(p['sn_i']), int(p['sn_j'])
-        n_i, n_j, w = int(p['n_i']), int(p['n_j']), int(p['w'])
-        blocks[(si, sj)] = {'n_i': n_i, 'n_j': n_j, 'w_requested': w,
-                            'edge_index': torch.as_tensor(
-                                cross_block(n_i, n_j, w, rng, D[si], D[sj]), dtype=torch.long)}
-    return internal, blocks
+              ('reapl', 'RE_APL (lower better)', r'$RE_{APL}$ $\downarrow$',          4),
+              ('clus_mmd',  'Clustering MMD (lower better)', r'Clustering $\downarrow$', 4),
+              ('orbit_mmd', 'Orbit MMD (lower better)',      r'Orbit $\downarrow$',      4),
+              ('spec_mmd',  'Spectrum MMD (lower better)',   r'Spectrum $\downarrow$',   4)]
+MMD_KEYS = ('clus_mmd', 'orbit_mmd', 'spec_mmd')
 
 
 def seed_of(path):
     return int(re.search(r'_s(\d+)\.pt$', path).group(1))
 
 
-def score(A, A_real, sn_of, real, apl_sources):
-    """Every row for one assembled graph. real is the Real column's dict, or None."""
+def score(A, A_real, sn_of, real, apl_sources, mmd=False):
+    """Every row for one assembled graph. real is the Real column's dict, or None.
+    mmd: also the clustering / orbit / spectrum discrepancies (real must carry
+    'profiles'); NaN otherwise, which the tables leave blank."""
     m = stats(A, sn_of)
     m.update(topology(A, np.random.default_rng(SEED), apl_sources))
+    m.update(dict.fromkeys(MMD_KEYS, float('nan')))
     if real is not None:
         m['degw'] = wasserstein_distance(m['deg'], real['deg'])
         m['regcc'] = abs(real['gcc'] - m['gcc']) / real['gcc']
         m['reapl'] = abs(real['apl'] - m['apl']) / real['apl']
+        if mmd:
+            m.update(graph_mmd.discrepancies(graph_mmd.profiles(A), real['profiles']))
     return m
 
 
@@ -137,27 +134,6 @@ def load_run(release, samples_dir, cfg, seed):
     return internal, blocks
 
 
-def load_competitor(path):
-    """A competitor's generated graph (competitors/out/<METHOD>/graph_s<seed>.npz) as csr."""
-    import scipy.sparse as sp
-    z = np.load(path)
-    n, e = int(z['n']), z['edges'].astype(np.int64)
-    A = sp.coo_matrix((np.ones(2 * len(e)), (np.r_[e[:, 0], e[:, 1]], np.r_[e[:, 1], e[:, 0]])),
-                      shape=(n, n)).tocsr()
-    A.data[:] = 1.0
-    A.setdiag(0)
-    A.eliminate_zeros()
-    return A
-
-
-def digress_oom(path):
-    """True when competitors/digress_scale.tsv says one-shot DiGress cannot fit Oldenburg."""
-    if not os.path.isfile(path):
-        return False
-    rows = [l.split('\t') for l in open(path) if l[0].isdigit()]
-    return any(r[0] == '6105' and r[1] == 'OOM' for r in rows)
-
-
 def cell(v, dp):
     if isinstance(v, str):
         return v
@@ -185,28 +161,61 @@ def main():
     ap.add_argument('--release', default=os.path.join(OUT, 'release_oldenburg_k7.pt'))
     ap.add_argument('--samples-dir', default=SAMPLES,
                     help='where the clusters_*/blocks_* files of every seed are')
-    ap.add_argument('--configs', nargs='+', default=['B_v3-B', 'C_v3-C'])
+    ap.add_argument('--configs', nargs='+', default=['B_v3_s80-B', 'C_v3_s80-C'])
+    ap.add_argument('--split-file',
+                    default=os.path.join(HERE, '..', '..', 'D_intra', 'data', 'splits',
+                                         'oldenburg_k7_s80.json'),
+                    help='the supernode split; its test supernodes define the test part')
     ap.add_argument('--graph-root',
                     default=os.path.join(HERE, '..', '..', 'D_intra', 'extraction'))
     ap.add_argument('--apl-sources', type=int, default=100,
                     help='BFS sources for APL above 6500 nodes; Oldenburg is exact')
-    ap.add_argument('--competitors-dir', default=os.path.join(RESULTS, 'competitors'),
-                    help='one subdirectory per full-graph competitor, holding '
-                         'graph_s<seed>.npz (n, edges) files')
     ap.add_argument('--baseline-seeds', type=int, default=5,
                     help='BS1/BS2 seeds when no configuration has been sampled yet')
-    ap.add_argument('--out-dir', default=os.path.join(RESULTS, 'D_inter', 'tables', 'syn'))
+    ap.add_argument('--out-dir', default=os.path.join(RESULTS, 'D_inter', 'tables', 'syn_s80'))
     args = ap.parse_args()
 
     release = _load(args.release)
     A_real = load_true_graph(release, os.path.abspath(args.graph_root))
     sn_of = supernode_of(release, A_real.shape[0])
-    real = score(A_real, A_real, sn_of, None, args.apl_sources)
-    real.update(degw=0.0, regcc=0.0, reapl=0.0)
-    print(f"{release['graph']} k={release['k']}: {real['nodes']} nodes, "
-          f"{real['edges']} edges, {len(release['pairs'])} connected pairs")
 
-    columns, seeds_used = {}, {}
+    # Two parts are scored for every graph. 'whole': all of the graph. 'test': the
+    # subgraph induced on the nodes of the held-out TEST supernodes -- their
+    # generated insides and the generated cross edges between two test supernodes,
+    # compared with the same induced subgraph of the real graph. No training
+    # supernode is in it.
+    import json
+    split = json.load(open(args.split_file))
+    test_sn = set(split['test'])
+    test_idx = np.flatnonzero(np.isin(sn_of, list(test_sn)))
+    parts = {'whole': None, 'test': test_idx}
+
+    def cut(A, idx):
+        return A if idx is None else A[idx][:, idx]
+
+    real = {}
+    for part, idx in parts.items():
+        Ar = cut(A_real, idx)
+        real[part] = score(Ar, Ar, sn_of if idx is None else sn_of[idx], None, args.apl_sources)
+        real[part].update(degw=0.0, regcc=0.0, reapl=0.0)
+        if part == 'whole':
+            real[part]['profiles'] = graph_mmd.profiles(Ar)
+            real[part].update(graph_mmd.discrepancies(real[part]['profiles'],
+                                                      real[part]['profiles']))
+    print(f"{release['graph']} k={release['k']}: {real['whole']['nodes']} nodes, "
+          f"{real['whole']['edges']} edges; test part: {len(test_sn)} test supernodes, "
+          f"{real['test']['nodes']} nodes, {real['test']['edges']} edges")
+
+    def score_parts(A):
+        out = {}
+        for part, idx in parts.items():
+            out[part] = score(cut(A, idx), cut(A_real, idx),
+                              sn_of if idx is None else sn_of[idx], real[part], args.apl_sources,
+                              mmd=part == 'whole')
+        return out
+
+    columns = {part: {} for part in parts}
+    seeds_used = {}
     for cfg in args.configs:
         files = sorted(glob.glob(os.path.join(
             args.samples_dir, f"blocks_{release['graph']}_k{release['k']}_{cfg}_s*.pt")),
@@ -214,81 +223,81 @@ def main():
         if not files:
             print(f"  {cfg}: no blocks_*_{cfg}_s*.pt in {args.samples_dir}, skipped")
             continue
-        runs = []
+        for part in parts:
+            columns[part][cfg] = []
         for f in files:
-            s = seed_of(f)
-            A = assemble(release, *load_run(release, args.samples_dir, cfg, s))
-            runs.append((s, score(A, A_real, sn_of, real, args.apl_sources)))
-            print(f"  {cfg} seed {s}: {runs[-1][1]['edges']} edges, "
-                  f"degW {runs[-1][1]['degw']:.4f}", flush=True)
-        columns[cfg], seeds_used[cfg] = runs, [s for s, _ in runs]
-    # Full-graph competitors (ICLR [2], HiGen): unconditional, so they never saw
-    # the release, and their nodes are not Oldenburg's -- the internal/cross rows
-    # have no meaning for them and stay blank. Everything else is scored as above.
-    for d in sorted(glob.glob(os.path.join(args.competitors_dir, '*', ''))):
-        name = os.path.basename(os.path.dirname(d))
-        files = sorted(glob.glob(os.path.join(d, 'graph_s*.npz')),
-                       key=lambda f: int(re.search(r'_s(\d+)\.npz$', f).group(1)))
-        if not files:
-            continue
-        runs = []
-        for f in files:
-            m = score(load_competitor(f), A_real, None, real, args.apl_sources)
-            m['edges_internal'] = m['edges_cross'] = float('nan')
-            runs.append((int(re.search(r'_s(\d+)\.npz$', f).group(1)), m))
-        columns[name], seeds_used[name] = runs, [s for s, _ in runs]
-        print(f"  competitor {name}: seeds {seeds_used[name]}")
-    if digress_oom(os.path.join(RESULTS, 'competitors', 'digress_scale.tsv')):
-        columns['DiGress'] = 'OOM'
-        print("  competitor DiGress: OOM at 6105 nodes (digress_scale.tsv)")
+            s_ = seed_of(f)
+            m = score_parts(assemble(release, *load_run(release, args.samples_dir, cfg, s_)))
+            for part in parts:
+                columns[part][cfg].append((s_, m[part]))
+            print(f"  {cfg} seed {s_}: {m['whole']['edges']} edges, degW whole "
+                  f"{m['whole']['degw']:.4f}, test part {m['test']['degw']:.4f}", flush=True)
+        seeds_used[cfg] = [s_ for s_, _ in columns['whole'][cfg]]
 
     # The baselines, once per seed of the longest configuration.
     rseeds = (max(seeds_used.values(), key=len) if seeds_used
               else list(range(args.baseline_seeds)))
-    pool = public_degrees('luxembourg')
-    columns['BS1'], columns['BS2'] = [], []
-    for s in rseeds:
-        A = assemble(release, *random_blocks(release, np.random.default_rng(s)))
-        columns['BS1'].append((s, score(A, A_real, sn_of, real, args.apl_sources)))
-        A = assemble(release, *bs2_blocks(release, pool, np.random.default_rng([s, 2])))
-        columns['BS2'].append((s, score(A, A_real, sn_of, real, args.apl_sources)))
+    r = full_graph.out_degree_profile(A_real, release)
+    for part in parts:
+        columns[part]['BS1'], columns[part]['BS2'] = [], []
+    for s_ in rseeds:
+        # Huiping's seeds: run s uses 42 + s, as her scripts.
+        m1 = score_parts(assemble(release, *full_graph.bs1_blocks(release, 42 + s_)))
+        m2 = score_parts(assemble(release, *full_graph.bs2_blocks(release, r, 42 + s_)))
+        for part in parts:
+            columns[part]['BS1'].append((s_, m1[part]))
+            columns[part]['BS2'].append((s_, m2[part]))
     print(f"  BS1, BS2: seeds {rseeds}")
-    columns['Real'] = [(None, real)]
-
-    names = list(columns)
-
-    def label(c, tex=False):
-        if c in BASELINE_LABELS:
-            return c if tex else BASELINE_LABELS[c]
-        if c == 'Real' or '-' not in c:          # Real, or a full-graph competitor
-            return c
-        icfg, inter = c.split('-')
-        known = icfg == f"{inter}_v3" and inter in LABELS
-        return ((TEX_LABELS if tex else LABELS)[inter] if known else c)
+    for part in parts:
+        columns[part]['Real'] = [(None, real[part])]
 
     os.makedirs(args.out_dir, exist_ok=True)
+    for part in parts:
+        write_tables(columns[part], part, release, rseeds, len(test_sn), args.out_dir)
+
+
+def label(c, tex=False):
+    if c in BASELINE_LABELS:
+        return c if tex else BASELINE_LABELS[c]
+    if c == 'Real' or '-' not in c:
+        return c
+    icfg, inter = c.split('-')
+    if icfg.startswith('Cft_v3') and inter == 'C_deg':     # both halves of C fine-tuned
+        return 'C' if tex else 'C (fine-tuned)'
+    known = icfg.startswith(f"{inter.split('_')[0]}_v3") and inter in LABELS
+    return ((TEX_LABELS if tex else LABELS)[inter] if known else c)
+
+
+def write_tables(columns, part, release, rseeds, n_test, out_dir):
+    """syn_summary[_test].tsv, syn_per_seed[_test].tsv and syn_table[_test].tex."""
+    sfx = '' if part == 'whole' else '_test'
+    names = list(columns)
+
     def vals(c, key):
-        """The per-seed values of one row, or the column's text (DiGress: 'OOM')."""
+        """The per-seed values of one row, or the column's text if it has no runs."""
         return columns[c] if isinstance(columns[c], str) else [r[key] for _, r in columns[c]]
     seeded = [c for c in names if not isinstance(columns[c], str)]
     n_seeds = ', '.join(f"{c}={len(columns[c])}" for c in seeded if c != 'Real')
+    what = (f"{release['graph']} k={release['k']}, whole graph" if part == 'whole' else
+            f"{release['graph']} k={release['k']}, test part: the subgraph on the "
+            f"{n_test} held-out test supernodes")
 
     # ---- TSV: "mean ± std" cells ---------------------------------------------
     rows = [['Metric'] + [label(c) for c in names]]
     for key, lab, _, dp in ROWS + ERROR_ROWS:
         rows.append([lab.strip()] + [cell(vals(c, key), dp) for c in names])
-    rows += [[], [f"{release['graph']} k={release['k']}; seeds per column: {n_seeds}; "
+    rows += [[], [f"{what}; seeds per column: {n_seeds}; "
                   "mean and sample std (ddof=1) across seeds, i.e. sampling noise only"]]
-    summary = os.path.join(args.out_dir, 'syn_summary.tsv')
+    summary = os.path.join(out_dir, f'syn_summary{sfx}.tsv')
     with open(summary, 'w') as f:
         f.write('\n'.join('\t'.join(r) for r in rows) + '\n')
 
     # ---- TSV: every graph -----------------------------------------------------
-    head = ['Metric'] + [f"{label(c)} s{s}" if s is not None else label(c)
-                         for c in seeded for s, _ in columns[c]]
+    head = ['Metric'] + [f"{label(c)} s{s_}" if s_ is not None else label(c)
+                         for c in seeded for s_, _ in columns[c]]
     rows = [head] + [[lab.strip()] + [f"{r[key]:.{dp}f}" for c in seeded for _, r in columns[c]]
                      for key, lab, _, dp in ROWS + ERROR_ROWS]
-    with open(os.path.join(args.out_dir, 'syn_per_seed.tsv'), 'w') as f:
+    with open(os.path.join(out_dir, f'syn_per_seed{sfx}.tsv'), 'w') as f:
         f.write('\n'.join('\t'.join(r) for r in rows) + '\n')
 
     # ---- LaTeX ------------------------------------------------------------------
@@ -296,24 +305,35 @@ def main():
         return '\n'.join(f"{tlab:<30}" + ''.join(
             f"& {tex_cell(vals(c, key), dp)} " for c in names) + r'\\'
             for key, _, tlab, dp in spec)
-    n_rep = len(rseeds)
+    scope = ("" if part == 'whole' else
+             rf" Restricted to the subgraph induced on the {n_test} held-out test supernodes"
+             r" (their generated insides and the generated cross edges between them), against"
+             r" the same subgraph of $G$; no training supernode appears in it.")
+    if any('_deg' in c for c in names):
+        c_desc = (r"B uses D\_intra and D\_inter trained on Luxembourg only. In C, D\_intra is "
+                  r"trained jointly on Luxembourg and the Oldenburg training supernodes (80/20 "
+                  r"split by supernode), and D\_inter is the Luxembourg model fine-tuned on the "
+                  r"Oldenburg training pairs. D\_inter sees each node's normalised internal "
+                  r"degree, computed from D\_intra's generated blocks.")
+    else:
+        c_desc = (r"B uses D\_intra and D\_inter trained on Luxembourg only; C trains both "
+                  r"jointly, from scratch, on Luxembourg together with the Oldenburg training "
+                  r"supernodes (80/20 split by supernode; no pre-training or fine-tuning stage).")
     tex = rf"""\begin{{table}}[H]
 \centering
 \caption{{$\textbf{{Reconstruction quality of the assembled synthetic graph}}$
-$\widehat{{G}}$ $\textbf{{ against the private graph }}$ $G$ ({release['graph'].capitalize()}, $k{{=}}{release['k']}$).
-B uses D\_intra and D\_inter trained on Luxembourg only; C adds the Oldenburg
-training split to both. Each synthetic column is the mean $\pm$ std over {n_rep}
-independently sampled graphs (sampling noise; one trained model per column).
-BS1 and BS2 reproduce every released count exactly---$\rho_{{\mathrm{{in}}}}$
+$\widehat{{G}}$ $\textbf{{ against the private graph }}$ $G$ ({release['graph'].capitalize()}, $k{{=}}{release['k']}$).{scope}
+{c_desc} Each synthetic column is the
+mean $\pm$ std over {len(rseeds)} independently sampled graphs (sampling noise; one trained
+model per column). BS1 and BS2 reproduce every released count exactly---$\rho_{{\mathrm{{in}}}}$
 per supernode and $w_{{ij}}$ per pair---so they differ from the synthetic columns
-only in \emph{{where}} the edges go: BS1 places them uniformly, BS2 with
-probability $\propto D_uD_v$ for expected degrees $D_u$ drawn from the public
-graph's degree distribution (Chung--Lu). Internal
-edges are D\_intra's, cross edges D\_inter's. GCC is the global clustering
-coefficient $3\tau_{{\triangle}}/\tau_{{3}}$; APL is the mean geodesic distance,
-computed exactly over all reachable pairs. Lower is better in the bottom block,
-where the Real column is $0$ by construction.}}
-\label{{tab:lsyn-{release['graph']}-k{release['k']}}}
+only in \emph{{where}} the edges go: BS1 (Erd\H{{o}}s--R\'enyi $G(n,m)$) places them
+uniformly; BS2 (SC-RG) places them subject to each supernode's hop layers $h_i$ and
+each cross block's out-degree profile $r_{{i\to j}}$. Internal edges are D\_intra's, cross edges
+D\_inter's. GCC is the global clustering coefficient $3\tau_{{\triangle}}/\tau_{{3}}$;
+APL is the mean geodesic distance over reachable pairs. Lower is better in the
+bottom block, where the Real column is $0$ by construction.}}
+\label{{tab:lsyn-{release['graph']}-k{release['k']}{sfx.replace('_', '-')}}}
 \begin{{tabular}}{{l{'r' * len(names)}}}
 \toprule
  & {' & '.join(label(c, tex=True) for c in names)} \\
@@ -325,11 +345,12 @@ where the Real column is $0$ by construction.}}
 \end{{tabular}}
 \end{{table}}
 """
-    with open(os.path.join(args.out_dir, 'syn_table.tex'), 'w') as f:
+    with open(os.path.join(out_dir, f'syn_table{sfx}.tex'), 'w') as f:
         f.write(tex)
 
-    print('\n' + open(summary).read())
-    print(f"wrote {os.path.abspath(args.out_dir)}/syn_summary.tsv, syn_per_seed.tsv, syn_table.tex")
+    print(f"\n== {what}\n" + open(summary).read())
+    print(f"wrote {os.path.abspath(out_dir)}/syn_summary{sfx}.tsv, syn_per_seed{sfx}.tsv, "
+          f"syn_table{sfx}.tex")
 
 
 if __name__ == '__main__':

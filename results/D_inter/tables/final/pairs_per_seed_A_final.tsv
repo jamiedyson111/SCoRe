@@ -1,0 +1,7 @@
+Metric	A (Lux -> Lux) s0	A (Lux -> Lux) s1	A (Lux -> Lux) s2	A (Lux -> Lux) s3	A (Lux -> Lux) s4
+Cross density (mean)	0.00669	0.00670	0.00671	0.00670	0.00670
+Cross density (std)	0.00410	0.00416	0.00419	0.00411	0.00415
+D_out (mean)	0.0721	0.0722	0.0722	0.0722	0.0721
+D_out (std)	0.2616	0.2616	0.2613	0.2610	0.2612
+Degree dist. vs real (W1)	0.00042	0.00028	0.00021	0.00015	0.00039
+Out-degree profile E_r (i<->j)	0.0042	0.0041	0.0038	0.0037	0.0041

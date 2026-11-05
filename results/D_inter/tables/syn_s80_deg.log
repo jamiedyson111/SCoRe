@@ -1,0 +1,52 @@
+oldenburg k=7: 6105 nodes, 7029 edges; test part: 63 test supernodes, 1152 nodes, 1183 edges
+  B_v3_s80-B_deg seed 0: 7101 edges, degW whole 0.0993, test part 0.0990
+  B_v3_s80-B_deg seed 1: 7116 edges, degW whole 0.1071, test part 0.1319
+  B_v3_s80-B_deg seed 2: 7107 edges, degW whole 0.1101, test part 0.1285
+  B_v3_s80-B_deg seed 3: 7122 edges, degW whole 0.0953, test part 0.1458
+  B_v3_s80-B_deg seed 4: 7136 edges, degW whole 0.0980, test part 0.1233
+  C_v3_s80-C_deg seed 0: 6892 edges, degW whole 0.0567, test part 0.0625
+  C_v3_s80-C_deg seed 1: 6917 edges, degW whole 0.0501, test part 0.0503
+  C_v3_s80-C_deg seed 2: 6914 edges, degW whole 0.0488, test part 0.0538
+  C_v3_s80-C_deg seed 3: 6902 edges, degW whole 0.0511, test part 0.0677
+  C_v3_s80-C_deg seed 4: 6955 edges, degW whole 0.0396, test part 0.0486
+/home/jamie/anaconda3/envs/kmis/lib/python3.8/site-packages/scipy/sparse/_index.py:146: SparseEfficiencyWarning: Changing the sparsity structure of a csr_matrix is expensive. lil_matrix is more efficient.
+  self._set_arrayXarray(i, j, x)
+  BS1, BS2: seeds [0, 1, 2, 3, 4]
+
+== oldenburg k=7, whole graph
+Metric	B (Lux -> Olde)	C (Lux, fine-tuned on Olde -> Olde)	BS1 (ER)	BS2 (SC-RG)	Real
+Nodes	6105 ± 0	6105 ± 0	6105 ± 0	6105 ± 0	6105
+Edges	7116.4 ± 13.6	6916.0 ± 24.0	7029.0 ± 0.0	7029.0 ± 0.0	7029.0
+internal (D_intra)	6328.6 ± 8.2	6112.4 ± 17.8	6227.0 ± 0.0	6227.0 ± 0.0	6227.0
+cross (D_inter)	787.8 ± 6.4	803.6 ± 10.6	802.0 ± 0.0	802.0 ± 0.0	802.0
+Mean degree	2.331 ± 0.004	2.266 ± 0.008	2.303 ± 0.000	2.303 ± 0.000	2.303
+Density	0.000382 ± 0.000001	0.000371 ± 0.000001	0.000377 ± 0.000000	0.000377 ± 0.000000	0.000377
+Components	5.4 ± 1.7	4.0 ± 1.0	577.6 ± 13.1	1.0 ± 0.0	1.0
+GCC	0.0097 ± 0.0017	0.0080 ± 0.0016	0.0663 ± 0.0031	0.0138 ± 0.0014	0.0115
+APL	31.11 ± 0.86	33.75 ± 1.37	29.42 ± 1.51	27.62 ± 1.10	40.69
+RE_GCC (lower better)	0.1939 ± 0.0634	0.3060 ± 0.1381	4.7727 ± 0.2725	0.1988 ± 0.1249	0.0000
+degW (lower better)	0.1019 ± 0.0063	0.0493 ± 0.0062	0.5561 ± 0.0065	0.3278 ± 0.0051	0.0000
+RE_APL (lower better)	0.2355 ± 0.0210	0.1706 ± 0.0338	0.2770 ± 0.0370	0.3213 ± 0.0271	0.0000
+
+oldenburg k=7, whole graph; seeds per column: B_v3_s80-B_deg=5, C_v3_s80-C_deg=5, BS1=5, BS2=5; mean and sample std (ddof=1) across seeds, i.e. sampling noise only
+
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/syn_s80_deg/syn_summary.tsv, syn_per_seed.tsv, syn_table.tex
+
+== oldenburg k=7, test part: the subgraph on the 63 held-out test supernodes
+Metric	B (Lux -> Olde)	C (Lux, fine-tuned on Olde -> Olde)	BS1 (ER)	BS2 (SC-RG)	Real
+Nodes	1152 ± 0	1152 ± 0	1152 ± 0	1152 ± 0	1152
+Edges	1197.6 ± 6.0	1170.8 ± 5.4	1183.0 ± 0.0	1183.0 ± 0.0	1183.0
+internal (D_intra)	1164.2 ± 6.1	1135.6 ± 5.9	1149.0 ± 0.0	1149.0 ± 0.0	1149.0
+cross (D_inter)	33.4 ± 0.5	35.2 ± 1.6	34.0 ± 0.0	34.0 ± 0.0	34.0
+Mean degree	2.079 ± 0.010	2.033 ± 0.009	2.054 ± 0.000	2.054 ± 0.000	2.054
+Density	0.001806 ± 0.000009	0.001766 ± 0.000008	0.001784 ± 0.000000	0.001784 ± 0.000000	0.001784
+Components	45.2 ± 0.4	43.6 ± 2.5	189.4 ± 11.7	42.0 ± 0.0	42.0
+GCC	0.0084 ± 0.0053	0.0068 ± 0.0018	0.0812 ± 0.0125	0.0132 ± 0.0049	0.0095
+APL	11.43 ± 1.28	11.09 ± 0.85	6.39 ± 0.60	9.02 ± 0.28	11.48
+RE_GCC (lower better)	0.4368 ± 0.2960	0.3081 ± 0.1483	7.5088 ± 1.3091	0.4415 ± 0.4535	0.0000
+degW (lower better)	0.1257 ± 0.0171	0.0566 ± 0.0082	0.4694 ± 0.0265	0.2097 ± 0.0200	0.0000
+RE_APL (lower better)	0.0807 ± 0.0652	0.0633 ± 0.0441	0.4436 ± 0.0519	0.2146 ± 0.0245	0.0000
+
+oldenburg k=7, test part: the subgraph on the 63 held-out test supernodes; seeds per column: B_v3_s80-B_deg=5, C_v3_s80-C_deg=5, BS1=5, BS2=5; mean and sample std (ddof=1) across seeds, i.e. sampling noise only
+
+wrote /home/jamie/Projects/Placement/results/D_inter/tables/syn_s80_deg/syn_summary_test.tsv, syn_per_seed_test.tsv, syn_table_test.tex

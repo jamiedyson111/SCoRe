@@ -1,0 +1,11 @@
+Metric	Real	A v3
+Degree (median)	2.0	2.0 ± 0.0
+Degree (mean)	1.8790	1.8852 ± 0.0023
+Degree (std)	0.5635	0.5616 ± 0.0018
+Connected (%)	100.00	97.78 ± 0.51
+Acyclic (%)	88.43	85.97 ± 0.82
+Components (mean)	1.0000	1.0225 ± 0.0054
+Edge-count MAE	0.0000	0.1353 ± 0.0050
+Degree dist. vs real (W1)	0.0000	0.0081 ± 0.0024
+Shortest-path W1	0.0000	0.1150 ± 0.0150
+Hop error E_h	0.0000	0.0428 ± 0.0020

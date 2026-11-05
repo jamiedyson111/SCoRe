@@ -1,0 +1,16 @@
+Quantity	ogbn-arxiv k=2	ogbn-arxiv k=3	ogbn-arxiv k=4	ogbn-arxiv k=5	ogbn-arxiv k=6	ogbn-arxiv k=7
+n	169343	169343	169343	169343	169343	169343
+m	1157799	1157799	1157799	1157799	1157799	1157799
+k	2	3	4	5	6	7
+#components	1	1	1	1	1	1
+#supernodes M	14424	7626	3588	1935	924	421
+#supernodes with n_i >= 3	9446	5889	3588	1935	924	421
+n_i mean	11.74	22.21	47.20	87.52	183.27	402.24
+n_i median	3	4	8	10	13	13
+n_i 95th percentile	24	36	58	67.30	79.85	74
+n_i max	43899	78382	103674	130284	147721	160286
+#super edges (edges between supernodes)	595289	199825	129830	62734	28008	8647
+#connected supernode pairs	103294	35699	18291	6874	2540	640
+m_i median	3	4	8	10	15	16
+m_i mean	39.00	125.62	286.50	565.93	1222.72	2729.58
+check: sum m_i + super edges = m	yes	yes	yes	yes	yes	yes

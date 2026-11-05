@@ -17,6 +17,7 @@ GRAPHS = {
     "minnesota":  ("minnesota", "Gleich"),
     "oldenburg":  ("oldenburg", "Brinkhoff"),
     "facebook":   ("ego-Facebook", "SNAP"),
+    "vermont":    ("VT", "DIMACS9"),
 }
 
 # Graphs that are not on SuiteSparse, read from a local edge list instead. The
@@ -24,17 +25,33 @@ GRAPHS = {
 # https://www.cs.utah.edu/~lifeifei/SpatialDataset.htm: one row per edge,
 # "edge_id u v length", nodes 0..6104. The file has 7035 rows but 6 are
 # duplicates, so the simple graph has 7029 edges.
+#
+# Vermont is the 9th DIMACS Challenge's TIGER/Line road network (us_roads VT,
+# Netzschleuder), converted to an undirected MatrixMarket file by
+# coarsening_comparison/convert_gt.py: 97,975 nodes, 106,242 edges, 756 components.
 EDGE_LISTS = {
     "oldenburg": "Brinkhoff/oldenburg/raw/OL.cedge",
+    "vermont":   "DIMACS9/vermont/VT.mtx",
 }
 
 
 def _load_edge_list(path):
-    """Unweighted symmetric SparseTensor, the same shape datasets.load_graph returns."""
+    """Unweighted symmetric SparseTensor, the same shape datasets.load_graph returns.
+
+    .cedge: "edge_id u v length", 0-indexed. .mtx: MatrixMarket coordinate, 1-indexed;
+    n is taken from its header, so isolated nodes are kept."""
     from torch_sparse import SparseTensor
-    uv = np.loadtxt(path, usecols=(1, 2), dtype=np.int64)
+    if path.endswith(".mtx"):
+        with open(path) as f:
+            line = f.readline()
+            while line.startswith("%"):
+                line = f.readline()
+            n = int(line.split()[0])
+            uv = np.loadtxt(f, usecols=(0, 1), dtype=np.int64, ndmin=2) - 1
+    else:
+        uv = np.loadtxt(path, usecols=(1, 2), dtype=np.int64)
+        n = int(uv.max()) + 1
     uv = uv[uv[:, 0] != uv[:, 1]]
-    n = int(uv.max()) + 1
     row = torch.from_numpy(np.concatenate([uv[:, 0], uv[:, 1]]))
     col = torch.from_numpy(np.concatenate([uv[:, 1], uv[:, 0]]))
     adj = SparseTensor(row=row, col=col, value=torch.ones(row.numel()),

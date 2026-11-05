@@ -1,0 +1,6 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# B: train Luxembourg -> test Oldenburg (A's model).
+# 80/20 train/test by supernode, shared with D_intra; no validation split.
+pairs_file: 'pairs_inter_B_lux2olde_k7_s80.pt'

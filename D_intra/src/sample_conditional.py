@@ -35,6 +35,7 @@ from src import utils
 from metrics.abstract_metrics import TrainAbstractMetricsDiscrete
 from diffusion_model_discrete import DiscreteDenoisingDiffusion
 from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
+import costlog
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
@@ -43,6 +44,9 @@ BATCH = 32
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
+    # +sample_batch=N overrides the batch (default 32, which the Oldenburg runs used).
+    global BATCH
+    BATCH = int(cfg.get('sample_batch', BATCH))
     assert cfg.general.test_only, "pass general.test_only=/abs/path/to/checkpoint.ckpt"
 
     from datasets.cluster_dataset import (ClusterGraphDataModule, ClusterDatasetInfos,
@@ -90,13 +94,20 @@ def main(cfg: DictConfig):
 
     repeats = int(cfg.get('repeats', 1))
     seed0 = int(cfg.get('seed', 0))
+    runs = []
     for rep in range(repeats):
         seed = seed0 + rep
         out_path = ('conditional_samples.txt' if repeats == 1
                     else f'conditional_samples_s{seed}.txt')
         if repeats > 1:
             print(f"\nrepeat {rep + 1}/{repeats}  (seed {seed})")
-        sample_split(model, test, device, seed, out_path)
+        with costlog.Measure() as m:
+            sample_split(model, test, device, seed, out_path)
+        runs.append({'seed': seed, **m.record})
+    # Runtime and peak GPU memory of each repeat -> cost_sample.json (costlog.py)
+    costlog.write('cost_sample.json', {
+        **costlog.safe_context(cfg, phase='sample', what='D_intra, test supernodes',
+                          n_items=len(test), sample_batch=BATCH), 'runs': runs})
 
 
 def seed_all(seed):

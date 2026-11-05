@@ -1,0 +1,20 @@
+{
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "host": "bear-pg0102u05a.bear.cluster",
+  "slurm_job_id": "59919784",
+  "time": "2026-10-30 20:34:37",
+  "name": "transfer_O_uncond_s80",
+  "dataset": "pairs_O_lux2olde_k7_s80_uncond.pt",
+  "batch_size": 64,
+  "diffusion_steps": 500,
+  "finetune_from": null,
+  "phase": "train",
+  "n_train": 254,
+  "fit_s": 11996.6,
+  "train_s": 11948.4,
+  "val_s": 21.8,
+  "epochs": 5500,
+  "s_per_epoch": 2.17,
+  "peak_alloc_mb": 17362.2,
+  "peak_reserved_mb": 80464.0
+}

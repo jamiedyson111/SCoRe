@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# A: train DBLP pairs -> test DBLP pairs; condition [n_i, n_j, w_ij]; every connected pair. dataprep/make_partition_pairs.py
+pairs_file: 'pairs_inter_A_dblp2coll_k3_s80_deg_nor.pt'

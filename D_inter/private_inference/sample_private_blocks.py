@@ -4,8 +4,8 @@ Runs in the `digress` env, on a GPU. Reads the stage-0 release and the stage-1
 generated internal blocks, and produces one B_ij per connected supernode pair:
 
     python3 sample_private_blocks.py \
-        dataset=pair_lux +experiment=pair_lux \
-        general.test_only="'/abs/path/checkpoints/pair_lux/epoch=179.ckpt'" \
+        dataset=pair_B_lux2olde_k7_s80_deg +experiment=pair_lux \
+        general.test_only="'/abs/path/checkpoints/pair_lux_s80_deg/last.ckpt'" \
         +release=/abs/path/release_oldenburg_k7.pt \
         +clusters=/abs/path/clusters_oldenburg_k7.pt \
         +out=/abs/path/blocks_oldenburg_k7.pt
@@ -18,9 +18,8 @@ that stage 0 writes alongside the release:
 
     +clusters=/abs/path/clusters_oldenburg_k7_true.pt
 
-With real context the run should reproduce the public-run numbers -- around 96%
-of blocks with |B_ij| exactly w_ij -- so a bad result points here rather than at
-stage 1's checkpoint. The file is read like any other clusters file; nothing from
+With real context the run measures D_inter alone, so a bad result points here
+rather than at stage 1's checkpoint. The file is read like any other clusters file; nothing from
 the extraction stack (h5py, torch_sparse) is imported, since the GPU environment
 does not have it.
 
@@ -31,21 +30,16 @@ blocks_<graph>_k<k>_<NAME>_s<s>.pt there, so each repeat is a whole synthetic
 graph, internal and cross blocks sampled together.
 run_private_blocks_repeats.sh sets these.
 
-WHAT IS OBSERVED AND WHAT IS GENERATED. The model is given the two internal
-blocks and the sides, and produces only the cross block. sample_batch re-imposes
-the observed part after every reverse step, so L_i and L_j come back bit-identical
--- see the `given` handling in diffusion_model_discrete.sample_batch.
+WHAT IS OBSERVED AND WHAT IS GENERATED. The model is given the sides and the node
+features X^_i, X^_j -- each node's normalised internal degree d_in(v) / (n_i - 1)
+in the GENERATED L^_i, L^_j of the clusters file -- and produces only the cross
+block. Training used the true X_i, X_j; this train--inference shift is the one the
+paper evaluates. The context is built by datasets/pair_dataset.py:build_given, the
+same function training's sample_conditioning uses, so the encodings cannot drift.
 
-THE `given` ENCODING MUST MATCH TRAINING EXACTLY. PairDatasetInfos.sample_conditioning
-is the reference implementation and build_given below mirrors it entry for entry:
-no-edge is [1,0], the diagonal is [0,0], padding is [0,0]. Only the non-cross
-entries are ever read back, but a mismatch would be a silent train/sample skew --
-the kind that produces plausible output and wrong numbers.
-
-rho_i COMES FROM THE RELEASE, not from the generated L_i. The brief defines
-c_ij from the released supernode conditions, and the released value is what the
-model was trained against. The realised density of the generated block will drift
-from it; that drift is reported rather than fed back in.
+THE CONDITION c_ij = [n_i, n_j, w_ij, r_{i->j}, r_{j->i}] comes from the release
+(make_private_release.py publishes both r profiles per connected pair), and is
+standardised with the pairs file's cond_mean / cond_std, as in training.
 """
 import graph_tool as gt   # noqa: F401  MUST BE FIRST -- see below
 # graph_tool loads the conda environment's libstdc++. Without it the system
@@ -80,6 +74,7 @@ from src import utils                                              # noqa: E402,
 from metrics.abstract_metrics import TrainAbstractMetricsDiscrete  # noqa: E402
 from diffusion_model_discrete import DiscreteDenoisingDiffusion    # noqa: E402
 from diffusion.extra_features import DummyExtraFeatures, ExtraFeatures  # noqa: E402
+import costlog                                                     # noqa: E402
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
@@ -93,39 +88,11 @@ def _load(path):
         return torch.load(path, map_location='cpu')
 
 
-def build_given(chunk, internal, device):
-    """(X, E) observed context for a batch of pairs, padded to the batch maximum.
-
-    Mirrors PairDatasetInfos.sample_conditioning in D_inter/src/datasets/pair_dataset.py.
-    Cross entries are left at no-edge; sample_batch overwrites them with noise
-    because `keep` is False there, so their initial value is never read.
-    """
-    n_nodes = torch.tensor([p['n_i'] + p['n_j'] for p in chunk], device=device)
-    n_max = int(n_nodes.max())
-    bs = len(chunk)
-
-    X = torch.zeros(bs, n_max, 2, device=device)
-    E = torch.zeros(bs, n_max, n_max, 2, device=device)
-    for b, p in enumerate(chunk):
-        n_i, n_j = p['n_i'], p['n_j']
-        n = n_i + n_j
-        X[b, :n_i, 0] = 1.
-        X[b, n_i:n, 1] = 1.
-
-        E[b, :n, :n, 0] = 1.                       # no-edge everywhere first
-        for offset, sn in ((0, p['sn_i']), (n_i, p['sn_j'])):
-            ei = internal[int(sn)]
-            if ei.numel():
-                src, dst = ei[0] + offset, ei[1] + offset
-                E[b, src, dst, 0] = 0.
-                E[b, src, dst, 1] = 1.
-        E[b, torch.arange(n), torch.arange(n), :] = 0.
-
-    return {'X': X, 'E': E}, n_nodes
-
-
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
+    # +sample_batch=N overrides the batch (default 32, which the Oldenburg runs used).
+    global BATCH
+    BATCH = int(cfg.get('sample_batch', BATCH))
     assert cfg.general.test_only, 'pass general.test_only="\'/abs/path/to/ckpt\'"'
     assert cfg.get('release'), "pass +release=/abs/path/to/release_<graph>_k<k>.pt"
 
@@ -169,31 +136,6 @@ def main(cfg: DictConfig):
     assert list(blob['cond_names']) == list(release['inter_cond_names']), (
         f"condition layout mismatch: model trained on {list(blob['cond_names'])}, "
         f"release supplies {list(release['inter_cond_names'])}")
-    # D_inter trains on one graph at one k, so the k column is constant and its
-    # training std was clamped to ~1e-6. That makes k an unusable channel rather
-    # than a wrong one: the model has only ever seen this slot at exactly 0, and
-    # feeding a k it never saw would divide the difference by 1e-6 and scale it
-    # by a million. There is no value that means "k=4" to this model, so pass
-    # the one value it has semantics for and say so.
-    _names = list(blob['cond_names'])
-    _ki = _names.index('k')
-    k_std = float(blob['cond_std'][_ki])
-    k_train, k_rel = int(blob['k']), int(release['k'])
-    k_feat = float(k_rel)
-    if k_rel != k_train:
-        if k_std < 1e-3:
-            k_feat = float(k_train)
-            print(f"note: release k={k_rel}, checkpoint trained at k={k_train} "
-                  f"with std={k_std:.3g} -- the k column never varied in "
-                  f"training and carries no signal. Feeding k={k_train} so it "
-                  f"standardises to 0, the only value this model has seen. "
-                  f"D_inter is therefore blind to the coarsening scale; the "
-                  f"pair's own n_i, n_j, w_ij still describe it.")
-        else:
-            z = (k_rel - float(blob['cond_mean'][_ki])) / k_std
-            print(f"note: release k={k_rel} against training k={k_train}; "
-                  f"the k feature arrives at {z:+.2f} sigma.")
-
     device = 'cuda' if (cfg.general.gpus > 0 and torch.cuda.is_available()) else 'cpu'
     model = DiscreteDenoisingDiffusion.load_from_checkpoint(
         cfg.general.test_only, map_location=torch.device(device),
@@ -204,28 +146,27 @@ def main(cfg: DictConfig):
     model.eval()
     model = model.to(device)
 
-    rho_of = {int(s['sn']): float(s['rho_in']) for s in release['supernodes']}
     n_of = {int(s['sn']): int(s['n']) for s in release['supernodes']}
 
     # n_i / n_j must describe the blocks actually being placed. With generated
     # context those are the sizes stage 1 produced, which equal the released n by
     # construction -- assert rather than assume, since a mismatch would misalign
     # every index below.
-    # r_{i->j} is a statistic OF THE BLOCK BEING GENERATED, so unlike n/rho/w it
-    # cannot be recovered from the supernode-level release -- stage 0 has to
-    # publish it per connected pair. If it is missing the cond_names assert above
-    # has already fired; this second check only catches a release that renamed
-    # the columns without filling them.
-    n_r = len(blob['cond_names']) - 6
+    # r_{i->j}, r_{j->i} are statistics OF THE BLOCK BEING GENERATED, so unlike n
+    # and w they cannot be recovered from the supernode-level release -- stage 0
+    # publishes them per connected pair. The cond_names assert above catches a
+    # release without them; this one a release that named them but left them short.
+    n_r = (len(blob['cond_names']) - 3) // 2
     pairs = []
     for p in release['pairs']:
         si, sj = int(p['sn_i']), int(p['sn_j'])
         assert n_of[si] == int(p['n_i']) and n_of[sj] == int(p['n_j'])
-        r = torch.as_tensor(p['r'], dtype=torch.float).view(-1) if n_r else torch.zeros(0)
-        assert r.numel() == n_r, (
-            f"pair ({si},{sj}) carries r of width {r.numel()}, model wants {n_r}")
+        r_ij = torch.as_tensor(p['r_ij'], dtype=torch.float).view(-1)
+        r_ji = torch.as_tensor(p['r_ji'], dtype=torch.float).view(-1)
+        assert r_ij.numel() == r_ji.numel() == n_r, (
+            f"pair ({si},{sj}) carries r of width {r_ij.numel()}/{r_ji.numel()}, model wants {n_r}")
         pairs.append({'sn_i': si, 'sn_j': sj, 'n_i': n_of[si], 'n_j': n_of[sj],
-                      'w': int(p['w']), 'r': r})
+                      'w': int(p['w']), 'r_ij': r_ij, 'r_ji': r_ji})
 
     # Validation-only: score fidelity on a random subsample instead of every pair.
     # Luxembourg has 10902 connected pairs against Oldenburg's 552, which at ~3 min
@@ -263,6 +204,7 @@ def main(cfg: DictConfig):
     # Sort by combined size so each batch pads close to its own maximum.
     pairs = sorted(pairs, key=lambda p: p['n_i'] + p['n_j'])
 
+    runs = []
     for seed, cpath, out_path in jobs:
         blob_c = _load(cpath)
         assert blob_c['graph'] == release['graph'] and blob_c['k'] == release['k'], (
@@ -279,7 +221,9 @@ def main(cfg: DictConfig):
             print("USING THE PRIVATE GRAPH'S REAL INTERNAL BLOCKS (validation mode)")
 
         seed_all(seed)
-        out, exact = sample_pairs(model, pairs, internal, rho_of, blob, k_feat, device)
+        with costlog.Measure() as m:
+            out, exact = sample_pairs(model, pairs, internal, blob, device)
+        runs.append({'seed': seed, **m.record})
 
         result = {
             'graph': release['graph'], 'k': release['k'],
@@ -298,6 +242,12 @@ def main(cfg: DictConfig):
               f"w_ij ({100.0 * exact / max(len(pairs), 1):.1f}%)")
         print(f"  cross edges: generated {gen_w}, requested {req_w}")
         print(f"wrote {out_path}")
+    # Whole-graph inference, D_inter's part: every connected pair, per seed
+    # -> blocks_<graph>_k<k>_<tag>_cost.json beside the outputs (costlog.py)
+    costlog.write(os.path.join(rdir, f"blocks_{gk}_{cfg.get('tag') or 'single'}_cost.json"), {
+        **costlog.safe_context(cfg, phase='full_graph_inter', what='D_inter, every connected pair',
+                          n_items=len(pairs), sample_batch=BATCH,
+                          limit=limit or None), 'runs': runs})
 
 
 def seed_all(seed):
@@ -307,19 +257,24 @@ def seed_all(seed):
     torch.cuda.manual_seed_all(seed)
 
 
-def sample_pairs(model, pairs, internal, rho_of, blob, k_feat, device):
-    """One cross block per pair, around the given internal blocks."""
+def sample_pairs(model, pairs, internal, blob, device):
+    """One cross block per pair, around the node features of the given internal blocks."""
+    from datasets.pair_dataset import build_given, internal_degree
+    feat = {}                                   # supernode -> x^, computed once
+    for p in pairs:
+        for sn, n in ((p['sn_i'], p['n_i']), (p['sn_j'], p['n_j'])):
+            if sn not in feat:
+                feat[sn] = internal_degree(internal[sn], n)
     out, exact, done = {}, 0, 0
     with torch.no_grad():
         for start in range(0, len(pairs), BATCH):
             chunk = pairs[start:start + BATCH]
             y_raw = torch.stack([
-                torch.cat([torch.tensor([float(p['n_i']), rho_of[p['sn_i']],
-                                         float(p['n_j']), rho_of[p['sn_j']],
-                                         float(p['w']), k_feat]),
-                           p['r']]) for p in chunk])
+                torch.cat([torch.tensor([float(p['n_i']), float(p['n_j']), float(p['w'])]),
+                           p['r_ij'], p['r_ji']]) for p in chunk])
             cond_y = ((y_raw - blob['cond_mean']) / blob['cond_std']).float().to(device)
-            given, n_nodes = build_given(chunk, internal, device)
+            given, n_nodes = build_given([(feat[p['sn_i']], feat[p['sn_j']]) for p in chunk],
+                                         device)
             samples = model.sample_batch(batch_id=start, batch_size=len(chunk),
                                          keep_chain=0, number_chain_steps=1,
                                          save_final=0, num_nodes=n_nodes,

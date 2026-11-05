@@ -1,0 +1,47 @@
+{
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "host": "bear-pg0102u11a.bear.cluster",
+  "slurm_job_id": "60286071",
+  "time": "2026-11-02 00:59:19",
+  "name": "pairs_B_verm_s80_deg_nor_sample_x5",
+  "dataset": "pairs_inter_B_lux2verm_k7_s80_deg_nor.pt",
+  "batch_size": 32,
+  "diffusion_steps": 500,
+  "finetune_from": null,
+  "phase": "sample",
+  "what": "D_inter, test pairs (generated X_i, X_j)",
+  "n_items": 2881,
+  "sample_batch": 128,
+  "runs": [
+    {
+      "seed": 0,
+      "seconds": 1632.23,
+      "peak_alloc_mb": 6104.5,
+      "peak_reserved_mb": 39454.0
+    },
+    {
+      "seed": 1,
+      "seconds": 1629.0,
+      "peak_alloc_mb": 6097.0,
+      "peak_reserved_mb": 39454.0
+    },
+    {
+      "seed": 2,
+      "seconds": 1629.96,
+      "peak_alloc_mb": 6097.0,
+      "peak_reserved_mb": 39454.0
+    },
+    {
+      "seed": 3,
+      "seconds": 1630.26,
+      "peak_alloc_mb": 6097.0,
+      "peak_reserved_mb": 39454.0
+    },
+    {
+      "seed": 4,
+      "seconds": 1629.08,
+      "peak_alloc_mb": 6097.0,
+      "peak_reserved_mb": 39454.0
+    }
+  ]
+}

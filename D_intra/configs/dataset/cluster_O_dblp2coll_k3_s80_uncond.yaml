@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# plain DiGress (no condition) on the Collab train supernodes -> test Collab; no condition; every supernode with n >= 3. extraction/make_partition_datasets.py
+pairs_file: 'pairs_O_dblp2coll_k3_s80_uncond.pt'

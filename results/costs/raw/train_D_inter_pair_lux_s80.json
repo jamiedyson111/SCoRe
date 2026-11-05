@@ -1,0 +1,19 @@
+{
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "host": "bear-pg0208u04a",
+  "slurm_job_id": "58035292",
+  "time": "2026-10-19 22:57:00",
+  "name": "pair_lux_s80",
+  "dataset": "pairs_inter_luxembourg_osm_k7_s80.pt",
+  "batch_size": 32,
+  "diffusion_steps": 500,
+  "phase": "train",
+  "n_train": 6904,
+  "fit_s": 12633.7,
+  "train_s": 12616.5,
+  "val_s": 15.8,
+  "epochs": 180,
+  "s_per_epoch": 70.09,
+  "peak_alloc_mb": 20383.4,
+  "peak_reserved_mb": 39754.0
+}

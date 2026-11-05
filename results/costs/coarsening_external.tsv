@@ -1,0 +1,13 @@
+Quantity	socfb-Brown11 k=1	socfb-Brown11 k=2	socfb-Brown11 k=3	socfb-Brown11 k=4	socfb-Brown11 k=5	socfb-Penn94 k=1	socfb-Penn94 k=2	socfb-Penn94 k=3	socfb-Penn94 k=4	socfb-Penn94 k=5
+n	8600	8600	8600	8600	8600	41536	41536	41536	41536	41536
+m	384526	384526	384526	384526	384526	1362220	1362220	1362220	1362220	1362220
+k	1	2	3	4	5	1	2	3	4	5
+#supernodes M	1192	263	31	11	8	6756	1595	92	3	1
+n_i median	1	3	3	2	2	1	3	3	5	41536
+n_i 95th percentile	19	20.90	17.50	4290	5581.60	18	23	8	37375.70	41536
+n_i max	1076	6585	8450	8576	8586	4411	30827	41207	41528	41536
+#super edges (edges between supernodes)	329385	97236	2291	11	0	1177819	434006	1960	17	0
+#connected supernode pairs	15064	3266	37	3	0	136381	29487	95	2	0
+m_i median	0	2	2	1	1	0	3	2	5	1362220
+m_i mean	46.26	1092.36	12330.16	34955.91	48065.75	27.29	581.95	14785.43	454067.67	1362220
+check: sum m_i + super edges = m	yes	yes	yes	yes	yes	yes	yes	yes	yes	yes

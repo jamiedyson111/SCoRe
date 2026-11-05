@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 import time
 import wandb
 import os
+from torch_geometric.utils import to_dense_batch
 
 from models.transformer_model import GraphTransformer
 from diffusion.noise_schedule import DiscreteUniformTransition, PredefinedNoiseScheduleDiscrete,\
@@ -43,11 +44,18 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
         # PARTIALLY-OBSERVED DIFFUSION (D_inter). When a dataset sets this, part
         # of the graph is given rather than generated: X carries which side of a
-        # supernode pair each node is on, the internal blocks L_i and L_j are
-        # observed context, and only the cross block B_ij is noised, predicted
+        # supernode pair each node is on, everything of E outside the cross block
+        # is observed context, and only the cross block B_ij is noised, predicted
         # and scored. Every other dataset leaves the attribute absent, getattr
         # returns False, and nothing guarded by it runs.
         self.pair_mode = getattr(dataset_infos, 'pair_mode', False)
+
+        # OBSERVED NODE FEATURES (D_inter's X_i, X_j: normalised internal degree).
+        # Real-valued, so not part of the categorical X: they ride along as
+        # noisy_data['x_in'] (bs, n, node_feat_dim) and are concatenated to the
+        # network input in forward(). Training reads them from data.x_in, sampling
+        # from given['x_in']. 0 for every other dataset, which leaves all of this off.
+        self.node_feat_dim = getattr(dataset_infos, 'node_feat_dim', 0)
 
         # OBSERVED NODE TYPES (D_intra with the centroid marked). X says which
         # node is the centroid; it is given, never generated, so it is held clean
@@ -145,6 +153,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         dense_data = dense_data.mask(node_mask)
         X, E = dense_data.X, dense_data.E
         noisy_data = self.apply_noise(X, E, data.y, node_mask)
+        noisy_data['x_in'] = self.observed_node_features(data)
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
 
@@ -213,6 +222,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
         dense_data = dense_data.mask(node_mask)
         noisy_data = self.apply_noise(dense_data.X, dense_data.E, data.y, node_mask)
+        noisy_data['x_in'] = self.observed_node_features(data)
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
         nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y,  node_mask, test=False)
@@ -291,6 +301,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
         dense_data = dense_data.mask(node_mask)
         noisy_data = self.apply_noise(dense_data.X, dense_data.E, data.y, node_mask)
+        noisy_data['x_in'] = self.observed_node_features(data)
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
         nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y, node_mask, test=True)
@@ -441,7 +452,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         kl_e = (self.test_E_kl if test else self.val_E_kl)(prob_true.E, torch.log(prob_pred.E))
         return self.T * (kl_x + kl_e)
 
-    def reconstruction_logp(self, t, X, E, node_mask, y=None, pair_mask=None):
+    def reconstruction_logp(self, t, X, E, node_mask, y=None, pair_mask=None, x_in=None):
         # Compute noise values for t = 0.
         t_zeros = torch.zeros_like(t)
         beta_0 = self.noise_schedule(t_zeros)
@@ -476,7 +487,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
         # Predictions
         noisy_data = {'X_t': sampled_0.X, 'E_t': sampled_0.E, 'y_t': sampled_0.y, 'node_mask': node_mask,
-                      't': torch.zeros(X0.shape[0], 1).type_as(y0)}
+                      't': torch.zeros(X0.shape[0], 1).type_as(y0), 'x_in': x_in}
         extra_data = self.compute_extra_data(noisy_data)
         pred0 = self.forward(noisy_data, extra_data, node_mask)
 
@@ -640,7 +651,8 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
         # 4. Reconstruction loss
         # Compute L0 term : -log p (X, E, y | z_0) = reconstruction loss
-        prob0 = self.reconstruction_logp(t, X, E, node_mask, y=y, pair_mask=pair_mask)
+        prob0 = self.reconstruction_logp(t, X, E, node_mask, y=y, pair_mask=pair_mask,
+                                         x_in=noisy_data.get('x_in'))
 
         if pair_mask is None:
             loss_term_0 = self.val_X_logp(X * prob0.X.log()) + self.val_E_logp(E * prob0.E.log())
@@ -670,8 +682,17 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
                        'batch_test_nll' if test else 'val_nll': nll}, commit=False)
         return nll
 
+    def observed_node_features(self, data):
+        """data.x_in as a dense (bs, n, node_feat_dim) tensor, or None when off."""
+        if not self.node_feat_dim:
+            return None
+        x_in, _ = to_dense_batch(x=data.x_in, batch=data.batch)
+        return x_in.float()
+
     def forward(self, noisy_data, extra_data, node_mask):
         X = torch.cat((noisy_data['X_t'], extra_data.X), dim=2).float()
+        if self.node_feat_dim:
+            X = torch.cat((X, noisy_data['x_in'].type_as(X)), dim=2)
         E = torch.cat((noisy_data['E_t'], extra_data.E), dim=3).float()
         y_t = noisy_data['y_t']
         if self.hop_mlp is not None:
@@ -699,7 +720,8 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             and sample_p_zs_given_zt return y with width 0, so without this the
             condition would be discarded after a single step and generation would
             silently fall back to unconditional.
-        :param given: dict with 'X' (bs, n, dx) and 'E' (bs, n, n, de) (optional).
+        :param given: dict with 'X' (bs, n, dx) and 'E' (bs, n, n, de) (optional), and
+            'x_in' (bs, n, node_feat_dim) when the model reads observed node features.
             Partially-observed generation: X is taken as fixed, and every entry of
             E OUTSIDE the cross block is held at the given value. Re-imposed after
             each reverse step, so the model always denoises the generated block
@@ -755,10 +777,16 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
         keep = None
         fixed_X = None
+        x_in = None
+        if self.node_feat_dim:
+            assert given is not None and given.get('x_in') is not None, \
+                "this model reads observed node features: pass given['x_in']"
+            x_in = given['x_in'].type_as(X)
         if given is not None:
             # X is the side indicator: observed, never generated. Everything of E
-            # outside the cross block is L_i / L_j -- also observed. Both are
-            # imposed on the initial noise and re-imposed after every step below.
+            # outside the cross block is observed too (since the internal-degree
+            # D_inter, a constant "no edge": L_i, L_j reach the model as x_in). Both
+            # are imposed on the initial noise and re-imposed after every step below.
             fixed_X = given['X'].type_as(X)
             keep = (~self.cross_mask(fixed_X, node_mask)).unsqueeze(-1)
             E = torch.where(keep, given['E'].type_as(E), E)
@@ -785,7 +813,8 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             t_norm = t_array / self.T
 
             # Sample z_s
-            sampled_s, discrete_sampled_s = self.sample_p_zs_given_zt(s_norm, t_norm, X, E, y, node_mask)
+            sampled_s, discrete_sampled_s = self.sample_p_zs_given_zt(s_norm, t_norm, X, E, y, node_mask,
+                                                                      x_in=x_in)
             X, E = sampled_s.X, sampled_s.E
             if fixed_X is not None:
                 # Restore the observed part. sampled_s is written back too: the
@@ -860,7 +889,7 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
 
         return molecule_list
 
-    def sample_p_zs_given_zt(self, s, t, X_t, E_t, y_t, node_mask):
+    def sample_p_zs_given_zt(self, s, t, X_t, E_t, y_t, node_mask, x_in=None):
         """Samples from zs ~ p(zs | zt). Only used during sampling.
            if last_step, return the graph prediction as well"""
         bs, n, dxs = X_t.shape
@@ -874,7 +903,8 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
         Qt = self.transition_model.get_Qt(beta_t, self.device)
 
         # Neural net predictions
-        noisy_data = {'X_t': X_t, 'E_t': E_t, 'y_t': y_t, 't': t, 'node_mask': node_mask}
+        noisy_data = {'X_t': X_t, 'E_t': E_t, 'y_t': y_t, 't': t, 'node_mask': node_mask,
+                      'x_in': x_in}
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
 

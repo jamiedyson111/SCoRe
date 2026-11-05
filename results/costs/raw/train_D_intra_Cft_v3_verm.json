@@ -1,0 +1,20 @@
+{
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "host": "bear-pg0208u09a",
+  "slurm_job_id": "60286058",
+  "time": "2026-11-01 13:44:01",
+  "name": "transfer_Cft_v3_verm_s80",
+  "dataset": "pairs_Cft_lux2verm_k7_s80.pt",
+  "batch_size": 64,
+  "diffusion_steps": 500,
+  "finetune_from": "/rds/projects/c/chenhp-graphsyn/D_intra/outputs/2026-10-19/14-07-38-transfer_A_v3_s80/checkpoints/transfer_A_v3_s80/last-v1.ckpt",
+  "phase": "train",
+  "n_train": 4418,
+  "fit_s": 3337.6,
+  "train_s": 3325.1,
+  "val_s": 9.1,
+  "epochs": 100,
+  "s_per_epoch": 33.25,
+  "peak_alloc_mb": 13801.8,
+  "peak_reserved_mb": 39754.0
+}

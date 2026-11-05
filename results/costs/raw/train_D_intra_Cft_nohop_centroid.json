@@ -1,0 +1,20 @@
+{
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "host": "bear-pg0102u16a.bear.cluster",
+  "slurm_job_id": "59919782",
+  "time": "2026-10-30 17:06:50",
+  "name": "transfer_Cft_nohop_centroid_s80",
+  "dataset": "pairs_Cft_lux2olde_k7_s80_nohop.pt",
+  "batch_size": 64,
+  "diffusion_steps": 500,
+  "finetune_from": "/rds/projects/c/chenhp-graphsyn/D_intra/outputs/2026-10-19/14-13-02-transfer_A_nohop_centroid_s80/checkpoints/transfer_A_nohop_centroid_s80/last-v1.ckpt",
+  "phase": "train",
+  "n_train": 254,
+  "fit_s": 365.7,
+  "train_s": 351.8,
+  "val_s": 10.0,
+  "epochs": 100,
+  "s_per_epoch": 3.52,
+  "peak_alloc_mb": 17361.0,
+  "peak_reserved_mb": 80464.0
+}

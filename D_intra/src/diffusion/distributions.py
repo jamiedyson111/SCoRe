@@ -26,6 +26,9 @@ class DistributionNodes:
         assert len(batch_n_nodes.size()) == 1
         p = self.prob.to(batch_n_nodes.device)
 
-        probas = p[batch_n_nodes]
+        # A size above the largest training size has probability 0 (Vermont: two test
+        # supernodes of 75-76 nodes, training max 70); indexing p with it would fault.
+        inside = batch_n_nodes < len(p)
+        probas = torch.where(inside, p[batch_n_nodes.clamp(max=len(p) - 1)], torch.zeros_like(p[:1]))
         log_p = torch.log(probas + 1e-30)
         return log_p

@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C as a FINE-TUNE: A's model trained further on the 4418 Vermont train supernodes -> test Vermont (A's standardisation and edge marginal kept; extraction/make_finetune_datasets.py).
+pairs_file: 'pairs_Cft_lux2verm_k7_s80.pt'
