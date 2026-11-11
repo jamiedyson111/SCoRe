@@ -19,10 +19,10 @@ completeness but cannot resolve anything: the paired bootstrap on those 48 puts 
 95% interval of roughly +/-0.04 on the degree-distribution distance, several
 times any plausible effect.
 
-WHAT A NULL RESULT WOULD MEAN. h is 7 of the 10 numbers the private release has
-to publish per supernode. If the ablation matches the full condition, the release
-can be cut to [n, rho_in, k] with no loss -- which is a stronger privacy position
-than the current design, and a result worth reporting in its own right.
+WHAT A NULL RESULT WOULD MEAN. h is 7 of the 10 numbers the synopsis stores
+per supernode. If the ablation matches the full condition, the synopsis can be cut
+to [n, rho_in, k] with no loss -- a more compact synopsis than the current design,
+and a result worth reporting in its own right.
 """
 import argparse
 import os

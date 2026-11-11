@@ -22,17 +22,16 @@ those of every earlier release.
 supernode's non-centre members at shortest-path distance 1..k from its centre.
 It is part of the release because the model requires it, which makes the release
 7 numbers per supernode larger than the brief's [n, rho_in] and is the natural
-place to look first if a DP budget is ever attached to this.
+place to look first if the synopsis has to be made smaller.
 
 `nodes` is the list of fine node ids in the supernode. It is not part of the
-release in the privacy sense -- it is the alignment map that lets stage 3 place
+synopsis -- it is the alignment map that lets stage 3 place
 generated blocks back into a graph with the same node set as G^priv, so that
 L^syn can be compared to it node-for-node. Nothing generative reads it.
 
-NO NOISE IS ADDED. n, rho_in and w_ij are exact. The hats in the brief denote
-"released", and privacy accounting is deliberately a separate piece of work; if
-a DP mechanism is added later it belongs here, between the exact statistic and
-the file, and nothing downstream needs to change.
+The statistics are exact: n, rho_in and w_ij are stored as measured. Any later
+transformation of the synopsis (rounding, noise) belongs here, between the exact
+statistic and the file, and nothing downstream needs to change.
 
 EVERY SUPERNODE IS KEPT, including those below the MIN_N=3 that the training
 sets dropped. A supernode that was too small to be worth training on still has

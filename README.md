@@ -1,22 +1,78 @@
-# DP-Graph-syn
+# SCoRe: Structure-Aware and Transferable Coarse-to-Fine Graph Reconstruction
 
-Generate a synthetic version of a private graph from a coarse, privacy-safe
-release. The graph is coarsened with **k-MIS** into supernodes; only per-supernode
-and per-pair summaries are released; two conditional diffusion models (both
-DiGress) rebuild the fine graph from them:
+Code for SCoRe. A graph is partitioned into connected supernodes of bounded size, and a
+compact structural synopsis of it is extracted. Two conditional discrete diffusion models
+(both built on DiGress) then rebuild the fine graph from the synopsis, one block at a time:
 
-- **D_intra** generates the inside of each supernode, from c_i = [n, ρ_in, k, h1..hk].
-- **D_inter** generates the edges between two supernodes, from
-  c_ij = [n_i, n_j, w_ij, r_i→j, r_j→i] (sizes, number of cross edges, and the
-  fraction of each side's nodes with 0, 1, 2, 3, 4+ cross edges) and each node's
-  normalised internal degree X_i = d_in(v) / (n_i − 1).
+- **D_intra** generates the internal edges of each supernode V_i from
+  c_i = [n_i, rho_i, K, h_i]: size, internal density, the coarsening parameter K and the
+  centroid-relative hop histogram h_i (the fraction of non-centroid vertices at each
+  distance 1..K from the centroid). The centroid is marked by a fixed node class.
+- **D_inter** generates the cross edges B_ij of each connected pair from
+  c_ij = [n_i, n_j, w_ij, r_i->j, r_j->i]: both sizes, the number of cross edges, and the
+  directional cross-degree histograms (the fraction of each side's vertices with 0, 1, 2,
+  3, 4+ cross edges). Each vertex also carries its normalised internal degree, taken from
+  the generated internal structure at inference.
 
-The blocks are then assembled into one graph on the private graph's own nodes.
+The blocks are assembled into the synthetic graph. Models are trained on a source graph
+G_s and applied to the synopsis S_K(G_t) of a target graph G_t, either directly
+(source-only transfer) or after fine-tuning on part of the target (target adaptation).
 
-**Public graph:** Luxembourg (114,599 nodes). **Private graph:** Oldenburg (6,105
-nodes). **k = 7** throughout.
+## Transfer tasks
 
-## The full pipeline
+| Source -> target | K | Partition | Cross-degree bins |
+|---|---|---|---|
+| Luxembourg -> Oldenburg | 7 | degree-ranked K-MIS (`k-mis-pool`) | 0, 1, 2, 3, 4+ |
+| Luxembourg -> Vermont | 7 | degree-ranked K-MIS (`k-mis-pool`) | 0, 1, 2, 3, 4+ |
+| DBLP -> ogbl-collab | 3 | size-aware K-MIS (`.npz` partition) | 0, 1, 2-3, 4-7, 8+ |
+| LiveJournal -> YouTube | 4 | CB-KMIS, b = 500, l = 10 (`.npz` partition) | 0, 1, 2, 3, 4+ |
+
+All graphs are undirected and simple (edges symmetrised, self-loops and repeated edges
+removed, every connected component kept). Supernodes with fewer than three vertices are
+not modelled.
+
+## Configurations
+
+Supernodes are split 80 / 20 into training and held-out sets (seed 0); a pair is a
+training pair if both its supernodes are training supernodes and a test pair if it
+touches a held-out supernode. The same split serves D_intra and D_inter.
+
+| | Trained on | Evaluated on | Paper |
+|---|---|---|---|
+| **A** | G_s (80% of its supernodes) | G_s held-out 20% | source evaluation |
+| **B** | the same model as A | G_t held-out 20% | source-only transfer (ZS) |
+| **C** | A fine-tuned on G_t's 80% (lr 5e-5, A's condition statistics and edge marginal) | the same G_t 20% | target adaptation (FT) |
+| **T** | G_t's 80% only, no source pretraining | the same G_t 20% | target-only reference |
+| **O** | plain DiGress on G_t's 80%, no condition | the same G_t 20% | DiGress baseline |
+
+ER and SC-RG (`competitors/Baseline/`, labelled BS1 and BS2 in the tables) are the
+non-learning references: ER places the exact edge counts uniformly; SC-RG builds hop
+layers from h_i and a V_i-side degree sequence from r_i->j.
+
+**Evaluation.** Road networks: five sampling seeds of each trained model, mean and
+standard deviation across seeds. ogbl-collab and YouTube: one generation scored on five
+fixed, non-overlapping groups of held-out instances (`results/competitor_data/<graph>/
+test_groups_*.json`), mean and standard deviation across groups. The whole graph is
+generated in full for the road networks; for ogbl-collab it is a partial
+reconstruction (one group of 357 held-out supernodes and the 7,917 pairs touching them
+are generated, everything else kept), and for YouTube it is not run.
+
+### Names in the code
+
+The code predates the paper's terminology and keeps its original names:
+
+| Code | Paper |
+|---|---|
+| public graph | source graph G_s |
+| private graph | target graph G_t |
+| release (`make_private_release.py`) | target synopsis S_K(G_t) |
+| `private_inference/` | whole-graph reconstruction |
+| `v3` | D_intra with the hop embedding and centroid class |
+| `remb` | D_inter with the cross-degree embedding |
+| `Cft` | configuration C (fine-tuned) |
+| BS1 / BS2 | ER / SC-RG |
+
+## Road networks: the full pipeline
 
 | # | step | runs on | where | command |
 |---|---|---|---|---|
@@ -26,7 +82,7 @@ nodes). **k = 7** throughout.
 | 4 | **k-MIS + D_inter datasets** | local, `kmis` env | `D_inter/dataprep/` | `python make_pair_blocks.py`, `python make_transfer_pairs.py` |
 | 5 | **Train D_inter** | BlueBEAR GPU | `D_inter/` | `sbatch scripts/run_pair.sh pair_lux_s80 pair_lux_s80` (and C) |
 | 6 | **Evaluate D_inter** | BlueBEAR GPU → local | `D_inter/` | `bash scripts/run_pairs_repeats.sh 5 B C`, then `evaluation/transfer_summary.py` |
-| 7 | **Assemble the full graph** | local → BlueBEAR GPU | `D_intra/private_inference/`, `D_inter/private_inference/` | release → D_intra on every supernode → D_inter on every pair |
+| 7 | **Assemble the full graph** | local → BlueBEAR GPU | `D_intra/private_inference/`, `D_inter/private_inference/` | target synopsis -> D_intra on every supernode -> D_inter on every pair |
 | 8 | **Evaluate the full graph** | local | `D_inter/private_inference/` | `python syn_repeats_summary.py` (whole graph + held-out test part) |
 | 9 | **Costs** | local | `D_intra/extraction/`, `D_inter/private_inference/` | `python coarsening_stats.py`, `python cost_summary.py` (runtime and GPU memory recorded by every job) |
 
@@ -38,47 +94,28 @@ Steps 1-3 are in [D_intra/README.md](D_intra/README.md), steps 4-8 in
 [D_inter/README.md](D_inter/README.md), each with exact commands, inputs, outputs
 and run times.
 
-## Split and configurations
+### Road-network runs
 
-**80 / 20 train / test by supernode, no validation split, the same supernodes for
-D_intra and D_inter.** D_intra's step 1 shuffles each graph's supernodes and writes
-the assignment to `D_intra/data/splits/<graph>_k7_s80.json`; D_inter trains only
-on pairs whose two supernodes are both training supernodes, and tests on every
-pair touching a test supernode. Models train for a fixed number of epochs and
-the final checkpoint is used.
+The held-out split is 63 Oldenburg supernodes and 187 pairs (Vermont: 1,104 supernodes,
+2,881 pairs). Models train for a fixed number of epochs and the final checkpoint is
+used. An earlier C trained one model jointly on Luxembourg + Oldenburg; its runs are the
+`C_v3` / `pair_C_s80` ones. The tables use the fine-tuned C, `Cft_*`.
 
-| | trained on | tested on |
-|---|---|---|
-| **A** | Luxembourg (80% of supernodes) | Luxembourg's held-out 20% |
-| **B** | the same -- **A's model** | Oldenburg's held-out 20% (63 supernodes, 187 pairs) |
-| **C** | **fine-tuning**: A's model, trained further on Oldenburg's 80% only (100 epochs, lr 5e-5; Oldenburg's conditions standardised with Luxembourg's statistics, A's edge marginal kept) | the same Oldenburg 20% as B |
+**The final tables** (D_intra and D_inter on each graph, the whole graph as relative
+errors, runtime and memory) come from `bash submit_final.sh` on BlueBEAR, then
+`bash fetch_s80.sh final` and `bash make_final_tables.sh` locally
+(-> `results/final_tables.xlsx`).
 
-(An earlier C trained one model jointly on Luxembourg + Oldenburg; its runs are
-the `C_v3` / `pair_C_s80` ones. The final tables use the fine-tuned C, `Cft_*`.)
+The whole graph (steps 7-8) is generated entirely by the models and scored twice: as a
+whole, and as its **test part**, the subgraph on the held-out supernodes, which contains
+no training supernode for either B or C.
 
-**The final tables** -- D_intra and D_inter on each graph, the full graph as
-relative errors, runtime and memory -- come from `bash submit_final.sh` on
-BlueBEAR, then `bash fetch_s80.sh final` and `bash make_final_tables.sh` locally
-(→ `results/final_tables.xlsx`).
+## Running on another pair of graphs
 
-The full graph (steps 7-8) is generated entirely by the models and scored twice:
-as a whole (all 6105 Oldenburg nodes; held out for B, ~80% training supernodes
-for C) and as its **test part**, the subgraph on the 63 held-out supernodes, which
-contains no training supernode for either.
+The method is the same for any source graph G_s and target graph G_t (configurations A, B
+and C above). What the datasets must satisfy:
 
-## Running on another pair of graphs (e.g. DBLP → Collab)
-
-The method is the same for any public graph G_s and private graph G_t:
-
-| | trained on | then fine-tuned on | tested on |
-|---|---|---|---|
-| **A** | G_s train (80% of its supernodes) | -- | G_s test (20%) |
-| **B** | the same model as A | -- | G_t test (20%) |
-| **C** | the same model as A | G_t train (80%), no G_s data | the same G_t test as B |
-
-What the datasets must satisfy:
-
-1. **One coarsening, one k, one split.** Coarsen each graph once with k-MIS (the
+1. **One coarsening, one K, one split.** Coarsen each graph once (the
    same k for G_s and G_t, and for D_intra and D_inter), then split its
    **supernodes** 80 / 20 with a fixed seed. Write the split to
    `D_intra/data/splits/<graph>_k<k>_s80.json`; everything else reads it. B and C
@@ -90,7 +127,8 @@ What the datasets must satisfy:
    `cond_mean` / `cond_std` (computed on G_s's training split), and C's files carry
    A's edge marginal (`edge_marginal`), so the fine-tune starts from A's model as is.
 4. **Supernode size.** DiGress works on dense n × n matrices: supernodes with
-   n_i < 3 are dropped, and D_inter drops pairs with n_i + n_j > 128. Dense or
+   n_i < 3 are dropped; the road-network D_inter datasets drop pairs with
+   n_i + n_j > 128, and the YouTube D_inter training set pairs above 800. Dense or
    social graphs give giant supernodes at large k (DBLP at k = 7: largest 296,322
    nodes; at k = 2: median 5, 95th percentile 40, largest 3,166), so use a small k
    and cap the supernode size for D_intra, reporting how many supernodes and pairs
@@ -163,7 +201,7 @@ Every folder has a README.
 
 | env | where | used for |
 |---|---|---|
-| `kmis` | local | k-MIS coarsening, datasets (steps 1, 4), the release, all scoring |
+| `kmis` | local | coarsening, datasets (steps 1, 4), the target synopsis, all scoring |
 | `digress` | BlueBEAR, `/rds/projects/c/chenhp-graphsyn/envs/digress` | training and sampling (steps 2, 3, 5, 6, 7) |
 
 Every BlueBEAR job sources its project's `scripts/setup.sh`, which loads the

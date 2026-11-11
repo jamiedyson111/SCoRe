@@ -29,7 +29,7 @@
 # Mismatching the two is at least loud: the model's y-MLP expects width 22 and a
 # cluster_lux blob supplies 15, so it dies with a shape error on the first batch.
 # Use configuration C's dataset instead only if you deliberately want the model
-# that saw private data during training -- that is a weaker privacy claim.
+# that saw target-graph training data -- configuration C rather than B.
 #
 # Runtime scales with the supernode count times the 500 reverse steps.
 # Oldenburg k=7 has 317 supernodes (~10 batches); Luxembourg has 8815 (~276).
