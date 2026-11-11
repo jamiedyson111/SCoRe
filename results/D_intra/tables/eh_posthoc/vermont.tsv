@@ -1,0 +1,6 @@
+Configuration	E_h (marked centroid)	E_h (graph centre)	E_h (best-matching node)
+Real	0.0000	0.0791	0.0000
+DiGress (private graph only, 80/20)		0.1074 ± 0.0009	0.0368 ± 0.0010
+Target (private graph only, 80/20)	0.0889 ± 0.0028	0.1157 ± 0.0017	0.0384 ± 0.0013
+C v3 (fine-tuned)	0.0684 ± 0.0025	0.0984 ± 0.0027	0.0287 ± 0.0015
+B v3 (hops + centroid)	0.0814 ± 0.0021	0.0984 ± 0.0022	0.0472 ± 0.0018

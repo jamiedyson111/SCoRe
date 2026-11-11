@@ -84,6 +84,36 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             model_input_dims = {**input_dims, 'y': input_dims['y'] - len(hop) + hop_dim}
             self.ydim = model_input_dims['y']
 
+        # r EMBEDDING (D_inter). With model.r_embed_dim = d_r, each cross-degree
+        # profile in y -- r_{i->j} (the rij* columns) and r_{j->i} (rji*) -- is
+        # replaced by MLP_r(r) in R^{d_r} before y reaches the transformer, so with
+        # d_r = 1 the condition is c_ij = [n_i, n_j, w_ij, e_ij, e_ji]: 5 numbers
+        # instead of 13. ONE MLP serves both directions: a bin means the same thing
+        # from either side, and which supernode takes the i slot is random. It trains
+        # end to end with the denoising loss. Off (null) for every other run.
+        r_dim = cfg.model.get('r_embed_dim', None)
+        self.r_cols = None
+        self.r_mlp = None
+        if r_dim:
+            names = list(getattr(dataset_infos, 'cond_names', []))
+            blocks = []
+            for pre in ('rij', 'rji'):
+                idx = [i for i, c in enumerate(names) if c.startswith(pre)]
+                if not idx or idx != list(range(idx[0], idx[-1] + 1)):
+                    raise ValueError(f"model.r_embed_dim={r_dim} needs contiguous {pre}* "
+                                     f"columns in the condition, got {names}")
+                blocks.append((idx[0], idx[-1] + 1))
+            width = blocks[0][1] - blocks[0][0]
+            if blocks[1][1] - blocks[1][0] != width or blocks[0][1] > blocks[1][0]:
+                raise ValueError(f"rij* and rji* must be equal-width blocks, rij first: {names}")
+            self.r_cols = tuple(blocks)
+            hidden = cfg.model.get('r_embed_hidden', 32)
+            self.r_mlp = nn.Sequential(nn.Linear(width, hidden), nn.ReLU(),
+                                       nn.Linear(hidden, r_dim))
+            model_input_dims = {**model_input_dims,
+                                'y': model_input_dims['y'] - 2 * width + 2 * r_dim}
+            self.ydim = model_input_dims['y']
+
         self.val_nll = NLL()
         self.val_cross_CE = CrossEntropyMetric()
         self.test_cross_CE = CrossEntropyMetric()
@@ -700,6 +730,11 @@ class DiscreteDenoisingDiffusion(pl.LightningModule):
             # one place every training, validation and sampling pass goes through.
             a, b = self.hop_cols
             y_t = torch.hstack((y_t[:, :a], self.hop_mlp(y_t[:, a:b].float()), y_t[:, b:]))
+        if self.r_mlp is not None:
+            # [n_i, n_j, w_ij, r_ij, r_ji] -> [n_i, n_j, w_ij, MLP_r(r_ij), MLP_r(r_ji)]
+            (a, b), (c, d) = self.r_cols
+            y_t = torch.hstack((y_t[:, :a], self.r_mlp(y_t[:, a:b].float()), y_t[:, b:c],
+                                self.r_mlp(y_t[:, c:d].float()), y_t[:, d:]))
         y = torch.hstack((y_t, extra_data.y)).float()
         return self.model(X, E, y, node_mask)
 

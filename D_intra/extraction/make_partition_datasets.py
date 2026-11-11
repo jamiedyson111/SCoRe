@@ -25,15 +25,47 @@ supernodes with n >= 3 first, so it does not depend on the limit. The limit is i
 the tag (_c<max-n>).
 """
 import argparse
+import importlib
 import json
 import os
+import sys
+import types
 
 import numpy as np
 import scipy.sparse as sp
 import torch
 
-from kmis_pairs import build_condition, cond_names, hop_histogram, standardise
-from make_transfer_datasets import (COND, COND_NO_HOPS, COND_NONE, MIN_N, OUT_DIR,
+
+class _Unavailable:
+    """Stands in for a k-mis-pool module that is not installed; any use fails loudly."""
+    def __init__(self, name):
+        self._name = name
+
+    def __getattr__(self, attr):
+        raise RuntimeError(f"{self._name}.{attr}: k-mis-pool is not installed here, and "
+                           f"building from a partition .npz should never need it")
+
+
+# kmis_pairs imports the k-MIS package (benchmark, kmis: k-mis-pool + torch_sparse)
+# at the top, for its own coarsening, which this builder never runs. Where it is not
+# installed -- BlueBEAR's digress env -- these stand-ins let that import through, so
+# the datasets can be built next to the .npz files instead of uploaded.
+for _mod, _attrs in (("benchmark", ("datasets",)), ("kmis", ("orderings", "reduce", "sample"))):
+    try:
+        # the submodules themselves: benchmark/ can import while benchmark.datasets
+        # still fails (h5py, torch_sparse missing)
+        for _a in _attrs:
+            importlib.import_module(f"{_mod}.{_a}")
+    except ImportError:
+        for _k in [k for k in sys.modules if k == _mod or k.startswith(_mod + ".")]:
+            del sys.modules[_k]
+        _m = types.ModuleType(_mod)
+        for _a in _attrs:
+            setattr(_m, _a, _Unavailable(f"{_mod}.{_a}"))
+        sys.modules[_mod] = _m
+
+from kmis_pairs import build_condition, cond_names, hop_histogram, standardise  # noqa: E402
+from make_transfer_datasets import (COND, COND_NO_HOPS, COND_NONE, MIN_N, OUT_DIR,  # noqa: E402
                                     OVERSAMPLE_TARGET, SEED, SPLIT_DIR, TEST_FRAC,
                                     VAL_FROM_TRAIN, describe_sizes, save,
                                     split_by_supernode, val_from_train, write_split)

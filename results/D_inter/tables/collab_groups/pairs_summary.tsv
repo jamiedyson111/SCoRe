@@ -1,0 +1,11 @@
+Metric	Real	B	C	BS1	BS2
+Cross edges (mean)	3.5130	4.2694 ± 0.7313	3.3828 ± 0.2865	3.5130 ± 0.2030	3.5130 ± 0.2030
+Cross edges (std)	6.9075	16.2107 ± 14.7265	7.7195 ± 4.4641	6.9075 ± 1.6120	6.9075 ± 1.6120
+Cross density (mean)	0.00229	0.00236 ± 0.00018	0.00226 ± 0.00019	0.00229 ± 0.00018	0.00229 ± 0.00018
+Cross density (std)	0.00534	0.00581 ± 0.00089	0.00545 ± 0.00103	0.00534 ± 0.00070	0.00534 ± 0.00070
+D_out (mean)	0.0435	0.0528 ± 0.0075	0.0419 ± 0.0028	0.0435 ± 0.0020	0.0435 ± 0.0020
+D_out (std)	0.4092	0.6425 ± 0.1716	0.4449 ± 0.0534	0.2281 ± 0.0081	0.4043 ± 0.0355
+Degree dist. vs real (W1)	0.00000	0.00960 ± 0.00651	0.00297 ± 0.00081	0.02484 ± 0.00125	0.01345 ± 0.00097
+Out-degree profile E_r (i<->j)	0.0000	0.0729 ± 0.0030	0.0663 ± 0.0008	0.0745 ± 0.0028	0.0337 ± 0.0031
+
+5 non-overlapping groups of 1000 test pairs (test_groups_d_inter.json); one generation per configuration, scored on each group; mean and sample std (ddof=1) across the groups; Real is the mean over the groups; E_r bins 0, 1, 2-3, 4-7, 8+

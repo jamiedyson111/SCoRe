@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from src import utils
 
@@ -71,6 +72,60 @@ class NodeCycleFeatures:
         return x_cycles, y_cycles
 
 
+_LinAlgError = getattr(torch.linalg, 'LinAlgError', RuntimeError)
+GPU_EIGH_MAX_N = 128      # above this, eigh runs on the CPU (see _eigh); the road graphs stay below
+
+
+def _eigh(L, vectors=True):
+    """torch.linalg.eigh / eigvalsh, retried in float64 if float32 fails to converge.
+
+    D_inter's copy, for D_intra (DBLP / ogbl-collab supernodes reach 380 nodes):
+    a float32 failure is retried in float64, and graphs above GPU_EIGH_MAX_N are
+    decomposed on the CPU, where cuSOLVER's failure mode cannot occur.
+    """
+    f = torch.linalg.eigh if vectors else torch.linalg.eigvalsh
+    if L.is_cuda and L.shape[-1] > GPU_EIGH_MAX_N:
+        # Large graphs (DBLP / ogbl-collab pairs reach 600 nodes): cuSOLVER's
+        # syevd failed on these near-n-fold-degenerate Laplacians
+        # (CUSOLVER_STATUS_EXECUTION_FAILED) and left the device unusable, so the
+        # float64 retry below crashed too. LAPACK on the CPU in float64 is
+        # reliable and costs ~2-70 ms a batch at these sizes.
+        out = _eigh_cpu(L.detach().cpu().double(), vectors)
+        return (tuple(o.to(L.device, L.dtype) for o in out) if vectors
+                else out.to(L.device, L.dtype))
+    try:
+        return f(L)
+    except _LinAlgError:
+        out = f(L.double())
+        return tuple(o.type_as(L) for o in out) if vectors else out.type_as(L)
+
+
+def _eigh_cpu(L, vectors):
+    """float64 LAPACK eigh with two fallbacks, for the large graphs _eigh sends here.
+
+    syevd can still give up on these near-n-fold-degenerate Laplacians ("too many
+    repeated eigenvalues", DBLP pairs of ~500 nodes). First retry with a tiny
+    deterministic diagonal ramp (1e-9 relative to the largest degree), which splits
+    the repeated eigenvalues without moving any by more than that; then SciPy's
+    QR-iteration driver (syev), slower but the most robust.
+    """
+    f = torch.linalg.eigh if vectors else torch.linalg.eigvalsh
+    try:
+        return f(L)
+    except _LinAlgError:
+        pass
+    n = L.shape[-1]
+    scale = 1e-9 * max(float(L.diagonal(dim1=-2, dim2=-1).abs().max()), 1.0)
+    try:
+        return f(L + torch.diag(torch.linspace(0, scale, n, dtype=L.dtype)))
+    except _LinAlgError:
+        pass
+    import scipy.linalg
+    w, v = zip(*(scipy.linalg.eigh(m, driver='ev') for m in L.numpy()))
+    w, v = torch.from_numpy(np.stack(w)), torch.from_numpy(np.stack(v))
+    return (w, v) if vectors else w
+
+
 class EigenFeatures:
     """
     Code taken from : https://github.com/Saro00/DGN/blob/master/models/pytorch/eigen_agg.py
@@ -89,14 +144,14 @@ class EigenFeatures:
         L = L * mask.unsqueeze(1) * mask.unsqueeze(2) + mask_diag
 
         if self.mode == 'eigenvalues':
-            eigvals = torch.linalg.eigvalsh(L)        # bs, n
+            eigvals = _eigh(L, vectors=False)         # bs, n
             eigvals = eigvals.type_as(A) / torch.sum(mask, dim=1, keepdim=True)
 
             n_connected_comp, batch_eigenvalues = get_eigenvalues_features(eigenvalues=eigvals)
             return n_connected_comp.type_as(A), batch_eigenvalues.type_as(A)
 
         elif self.mode == 'all':
-            eigvals, eigvectors = torch.linalg.eigh(L)
+            eigvals, eigvectors = _eigh(L)
             eigvals = eigvals.type_as(A) / torch.sum(mask, dim=1, keepdim=True)
             eigvectors = eigvectors * mask.unsqueeze(2) * mask.unsqueeze(1)
             # Retrieve eigenvalues features
@@ -212,13 +267,19 @@ class KNodeCycles:
         super().__init__()
 
     def calculate_kpowers(self):
-        self.k1_matrix = self.adj_matrix.float()
+        # Above GPU_EIGH_MAX_N nodes the powers run in float64: on dense 500-node
+        # supernodes tr(A^6) reaches ~1e14, and the inclusion-exclusion below cancels
+        # terms that large, so float32 rounding left negative cycle counts. Exact in
+        # float64 up to 9e15; smaller graphs keep float32 (their values are unchanged).
+        dt = torch.float64 if self.adj_matrix.shape[-1] > GPU_EIGH_MAX_N else torch.float32
+        self.adj_matrix = self.adj_matrix.to(dt)
+        self.k1_matrix = self.adj_matrix
         self.d = self.adj_matrix.sum(dim=-1)
-        self.k2_matrix = self.k1_matrix @ self.adj_matrix.float()
-        self.k3_matrix = self.k2_matrix @ self.adj_matrix.float()
-        self.k4_matrix = self.k3_matrix @ self.adj_matrix.float()
-        self.k5_matrix = self.k4_matrix @ self.adj_matrix.float()
-        self.k6_matrix = self.k5_matrix @ self.adj_matrix.float()
+        self.k2_matrix = self.k1_matrix @ self.adj_matrix
+        self.k3_matrix = self.k2_matrix @ self.adj_matrix
+        self.k4_matrix = self.k3_matrix @ self.adj_matrix
+        self.k5_matrix = self.k4_matrix @ self.adj_matrix
+        self.k6_matrix = self.k5_matrix @ self.adj_matrix
 
     def k3_cycle(self):
         """ tr(A ** 3). """

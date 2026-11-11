@@ -119,19 +119,42 @@ Luxembourg and Oldenburg in the code (`kmis_pairs.GRAPHS`, `NAME` / `K` in
 `make_pair_blocks.py`, the Oldenburg loader in `make_transfer_pairs.py`), so a new
 pair of graphs means registering the graphs there or passing them in.
 
+## Collaboration and social graphs
+
+DBLP -> ogbl-collab (K = 3) and LiveJournal -> YouTube (K = 4) use partitions computed
+elsewhere and read from `.npz` files (fine graph, assignment, centroids):
+
+- `D_intra/extraction/make_partition_datasets.py` and `D_inter/dataprep/make_partition_pairs.py`
+  build the A / B / C datasets; `D_inter/dataprep/make_stratified_pairs.py` builds the reduced
+  LiveJournal / YouTube D_inter training sets (stratified on w_ij / (n_i + n_j) and pair size).
+- `baselines/make_test_groups.py` draws the fixed, non-overlapping test groups
+  (`results/competitor_data/<graph>/test_groups_*.json`) shared with the competing methods.
+- `D_intra/src/sample_conditional.py` and `D_inter/src/sample_pairs_conditional.py` sample them
+  (`+subset_file`, `+gen_samples`, `+partial_file`); `repeat_summary.py` and
+  `transfer_summary.py` score them per group (`--groups`); `baselines/group_baselines.py`
+  produces ER and SC-RG on the same groups.
+- `D_inter/private_inference/partial_whole_graph.py` assembles and scores the partial
+  whole-graph reconstruction of Collab; `spectrum_only.py` computes the spectrum metric of
+  large graphs by eigenvalue counting.
+- The BlueBEAR jobs are in `scripts/bluebear/`.
+
 ## Repository
 
 ```
 D_intra/        D_intra: code, configs, datasets, job scripts. Uploaded to BlueBEAR.
 D_inter/        D_inter: code, configs, datasets, job scripts, assembly. Uploaded to BlueBEAR.
-results/        everything produced: tables, samples, checkpoints, the release (local only)
-baselines/      BS1 (Huiping's ER) and BS2 (her SC-RG): runner and full-graph version
+results/        tables, run costs and the fixed test groups (samples and checkpoints stay local)
+baselines/      BS1 (Huiping's ER) and BS2 (her SC-RG): runners, full-graph and test-group versions
 competitors/    Baseline/: Huiping's ER (BS1) and SC-RG (BS2) scripts
-archive/        old and unused files, kept for reference
+coarsening_comparison/  coarsening statistics of the candidate graphs
+scripts/bluebear/       job submitters for the collaboration and social-graph experiments
+archive/        old and unused files, kept for reference (not tracked)
 k-mis-pool/     the k-MIS coarsening code (Bacciu et al.)
 graph-coarsening/  Loukas coarsening library, for reference
 make_graph.sh   steps 7-8 for ONE graph, end to end, including the BlueBEAR jobs
 make_tables.sh  the single-run tables of both projects
+make_final_tables.sh, make_vermont_tables.sh   the repeated-run tables (Oldenburg, Vermont)
+fetch_s80.sh, submit_final.sh                  fetch results from / submit the final runs on BlueBEAR
 ```
 
 Every folder has a README.

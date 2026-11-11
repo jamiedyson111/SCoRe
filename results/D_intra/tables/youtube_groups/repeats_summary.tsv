@@ -1,0 +1,13 @@
+Metric	Real	B v3 (hops + centroid)	C v3 (fine-tuned)	BS1 (ER)	BS2 (SC-RG)
+Degree (median)	1.0	1.0 ± 0.0	1.0 ± 0.0	2.0 ± 0.0	1.0 ± 0.0
+Degree (mean)	1.9924	2.1231 ± 0.0362	1.9741 ± 0.0085	1.9924 ± 0.0151	1.9924 ± 0.0151
+Degree (std)	8.7413	7.7162 ± 1.1348	9.0614 ± 1.1704	1.3165 ± 0.0179	8.2755 ± 1.1604
+Connected (%)	100.00	96.80 ± 0.45	99.08 ± 0.50	32.38 ± 1.02	100.00 ± 0.00
+Acyclic (%)	68.04	49.28 ± 1.77	71.48 ± 1.02	24.38 ± 0.79	68.04 ± 1.37
+Components (mean)	1.0000	1.1836 ± 0.0718	1.0114 ± 0.0079	3.6340 ± 0.1804	1.0000 ± 0.0000
+Edge-count MAE	0.0000	1.4748 ± 0.4133	0.3602 ± 0.0830	0.0000 ± 0.0000	0.0000 ± 0.0000
+Degree dist. vs real (W1)	0.0000	0.2184 ± 0.0600	0.0518 ± 0.0058	1.1737 ± 0.0494	0.1676 ± 0.0100
+Shortest-path W1	0.0000	0.2257 ± 0.1233	0.0784 ± 0.0288	4.4178 ± 0.3623	0.2011 ± 0.0810
+Hop error E_h	0.0000	0.0919 ± 0.0036	0.0539 ± 0.0030	0.3594 ± 0.0127	0.0000 ± 0.0000
+
+5 non-overlapping groups of 1000 held-out Youtube test supernodes (test_groups_d_intra.json); one generation (seed 0) per configuration, scored on each group; mean and sample std (ddof=1) across the groups; Real is the mean over the groups; E_h is blank where the samples mark no centroid

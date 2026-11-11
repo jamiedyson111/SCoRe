@@ -29,3 +29,23 @@ DiGress/
 
 # Downloaded external graphs (networkrepository.com)
 /datasets_external/
+
+# Windows download markers
+*:Zone.Identifier
+
+# Paper drafts and working notes (kept out of the code repository)
+/ICDE_main*.tex
+/DP_Graph_syn*.pdf
+/Synthetic Graph Generation.xlsx
+/results/paper_changes.md
+/results/paper_todo.xlsx
+/results/todo_deadline.xlsx
+
+# Exported competitor data is regenerable; keep only the fixed test groups
+/results/competitor_data/**/*
+!/results/competitor_data/**/
+!/results/competitor_data/**/test_groups*.json
+!/results/competitor_data/README.md
+
+# Run logs
+/results/**/*.log

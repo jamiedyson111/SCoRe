@@ -1,4 +1,4 @@
-# Private inference — D_inter half
+# Private inference -- D_inter half
 
 Stages 2 and 3 of the four-stage pipeline. Stages 0 and 1 live in
 `D_intra/private_inference/` and produce the two files this half consumes:
@@ -58,7 +58,7 @@ BS1 (Huiping's ER) and BS2 (her SC-RG) are redrawn per seed, on every supernode
 and pair, by `baselines/full_graph.py`. Feeding the private graph's own blocks in as every
 seed reproduces the Real column exactly (RE_GCC, degW, RE_APL all 0).
 
-## Stage 2 — cross blocks
+## Stage 2 -- cross blocks
 
 ```bash
 sbatch private_inference/run_private_blocks.sh \
@@ -93,8 +93,8 @@ sbatch private_inference/run_private_blocks.sh CKPT RELEASE \
 ```
 
 That isolates stage 2 from stage 1 entirely. With real context the run should
-reproduce the public-run numbers — around 96% of blocks with `|B_ij|` exactly
-`w_ij` — so a bad result points here rather than at the D_intra checkpoint.
+reproduce the public-run numbers -- around 96% of blocks with `|B_ij|` exactly
+`w_ij` -- so a bad result points here rather than at the D_intra checkpoint.
 
 Do this on **Luxembourg** before trusting any Minnesota figure. The Minnesota
 run scored 71.0% (154/217), which is consistent both with distribution shift
@@ -127,7 +127,7 @@ so stage 0 must publish 5 numbers per connected pair (10902 of them on
 Luxembourg, 217 on Minnesota) describing the row-degree profile of the true
 `B_ij`. There is no way to derive it on this side. Until
 `D_intra/private_inference/make_private_release.py` emits it, the `cond_names`
-assert above fires on every old release — which is the intended behaviour, not a
+assert above fires on every old release -- which is the intended behaviour, not a
 bug to work around.
 
 It is an ordinary clusters file, read like any other. Stage 2 deliberately imports
@@ -139,7 +139,7 @@ Pairs larger than the combined size 128 seen in training are generated anyway an
 warned about; the transformer is size-agnostic, so that cap was a memory decision,
 not a model limit. Use `+max_combined=N` to skip them.
 
-## Stage 3 — assembly and scoring
+## Stage 3 -- assembly and scoring
 
 ```bash
 python assemble_syn.py --release  out/release_oldenburg_k7.pt \
@@ -168,8 +168,17 @@ components, then GCC and APL, then three discrepancies against the real graph.
 | REGCC | `\|GCC(G) - GCC(G^)\| / GCC(G)` |
 | degW | `W_1` between the two degree distributions |
 | REAPL | `\|APL(G) - APL(G^)\| / APL(G)` |
+| Clustering | MMD between the local clustering-coefficient histograms (100 bins on [0, 1], Gaussian-TV kernel, sigma 0.1), as DiGress (`graph_mmd.py`) |
+| Orbit | MMD between ORCA 4-node graphlet-orbit profiles (mean count per vertex, Gaussian-TV kernel, sigma 30) |
+| Spectrum | MMD between normalised-Laplacian eigenvalue histograms (200 bins on [0, 2], sigma 1). Up to 20,000 nodes from a dense eigendecomposition; above (Vermont) by counting the eigenvalues below each bin edge from a sparse symmetric factorisation (Sylvester's law of inertia, `graph_mmd.spectrum_hist_inertia`), ~30 s per Vermont graph. `spectrum_only.py` computes this row on its own; `--validate` checks it against the dense histogram on Oldenburg |
 
-APL is **exact** — every reachable pair — for graphs up to 6500 nodes, which
+Counting and dense agree except for eigenvalues exactly 2 (one per bipartite component,
+e.g. every tree): floating point puts about half of them just above 2, outside the
+histogram's range, so the dense histogram drops them; counting keeps them. On Oldenburg
+this changes no cell at 4 dp except BS1 (ER, with ~580 components): 0.0277 dense, 0.0286
+counted.
+
+APL is **exact** -- every reachable pair -- for graphs up to 6500 nodes, which
 covers Oldenburg at 6105 (a ~300 MB distance matrix; the limit was 5000 until
 Oldenburg replaced Minnesota, at 2642, as the private graph). Luxembourg's 114599 nodes would need a 1.3e10-entry
 distance matrix, so there it is estimated from `--apl-sources` BFS sweeps (100 by
@@ -178,7 +187,7 @@ used. Sampling costs about 2.5%: Minnesota's APL is 35.35 exactly and 36.28 from
 64 sources.
 
 > **REGCC explodes when the real graph is nearly triangle-free.** Luxembourg's
-> GCC is 0.0015, so the Random column scores REGCC 65.4 — a relative error
+> GCC is 0.0015, so the Random column scores REGCC 65.4 -- a relative error
 > against a denominator that is almost zero. That is the metric behaving as
 > defined, not a bug, but it means REGCC is not comparable between graphs and is
 > better read next to the raw GCC row than on its own.
@@ -191,7 +200,7 @@ D_inter rather than pooling both into one number.
 
 Also measured but outside the table: isolated nodes, largest-component fraction,
 reachable pairs, triangles, average local clustering and degree assortativity.
-The reachable fraction has to be read beside APL — a fragmented graph measures
+The reachable fraction has to be read beside APL -- a fragmented graph measures
 distances only within its fragments and so reports a SHORTER APL, not a longer
 one. `--no-baseline` drops the Random column for a plain two-column table.
 
@@ -204,7 +213,7 @@ one. `--no-baseline` drops the Random column for a plain two-column table.
 
 Node identity is preserved: supernode `i`'s local node `u` is written back to fine
 node id `release['supernodes'][i]['nodes'][u]`, so `L^syn` has exactly the node set
-of `G^priv`. That is what makes the degree comparison clean — both multi-sets have
+of `G^priv`. That is what makes the degree comparison clean -- both multi-sets have
 the same length, so unlike the public-run pair metrics there is no finite-sample
 correction and a perfect result scores exactly 0.
 

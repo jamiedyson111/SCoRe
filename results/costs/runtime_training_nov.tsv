@@ -1,0 +1,7 @@
+TRAINING (new models)	GPU	train examples	batch	T	epochs	training (h)	s / epoch	validation (h)	whole fit (h)	peak GPU alloc (GB)	peak GPU reserved (GB)
+D_intra v3, DBLP (A, B)	NVIDIA A100-SXM4-80GB	12064	8	500	117	8.47	260.7	0.00	8.48	27.03	78.58
+D_intra v3, A fine-tuned on Collab (C)	NVIDIA A100-SXM4-80GB	7147	6	500	62	3.59	208.7	0.00	3.60	36.01	78.58
+D_intra v3, LiveJournal (A, B)	NVIDIA A100-SXM4-80GB	98888	6	500	14	7.36	1893.8	0.00	7.37	61.86	78.58
+D_inter r-embedded, Luxembourg (A, B)	NVIDIA A100-SXM4-80GB	6904	32	500	180	3.20	64.0	0.00	3.21	19.91	78.58
+D_inter r-embedded, A fine-tuned on Olde (C)	NVIDIA A100-SXM4-80GB	362	32	500	100	0.44	15.9	0.00	0.45	19.25	78.58
+D_inter r-embedded, A fine-tuned on Vermont (C)	NVIDIA A100-SXM4-80GB	5069	32	500	100	1.87	67.3	0.00	1.87	19.25	78.58

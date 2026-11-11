@@ -732,6 +732,9 @@ def eval_fraction_unique_non_isomorphic_valid(fake_graphs, train_graphs, validit
     return frac_unique, frac_unique_non_isomorphic, frac_unique_non_isomorphic_valid
 
 
+MAX_REFERENCE = 2000   # reference graphs for the DiGress MMD check at test time (see forward)
+
+
 class SpectreSamplingMetrics(nn.Module):
     def __init__(self, datamodule, compute_emd, metrics_list):
         super().__init__()
@@ -755,6 +758,13 @@ class SpectreSamplingMetrics(nn.Module):
 
     def forward(self, generated_graphs: list, name, current_epoch, val_counter, local_rank, test=False):
         reference_graphs = self.test_graphs if test else self.val_graphs
+        # DiGress's own MMD check, printed in the log only (our tables are scored by
+        # evaluation/). Against a large test split it is the slowest part of a job --
+        # 11.6 h for LiveJournal's 24,722 test graphs -- so above MAX_REFERENCE it uses a
+        # fixed random subset (seed 0).
+        if len(reference_graphs) > MAX_REFERENCE:
+            keep = np.random.default_rng(0).permutation(len(reference_graphs))[:MAX_REFERENCE]
+            reference_graphs = [reference_graphs[i] for i in sorted(keep)]
         if local_rank == 0:
             print(f"Computing sampling metrics between {len(generated_graphs)} generated graphs and {len(reference_graphs)}"
                   f" test graphs -- emd computation: {self.compute_emd}")

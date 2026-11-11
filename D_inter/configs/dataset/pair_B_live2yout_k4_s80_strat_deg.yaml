@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# B: A's model -> YouTube test (5 x 1,000 pairs), on A's condition statistics; condition [n_i, n_j, w_ij, r_ij, r_ji], r bins from the data. dataprep/make_stratified_pairs.py
+pairs_file: 'pairs_inter_B_live2yout_k4_s80_strat_deg.pt'

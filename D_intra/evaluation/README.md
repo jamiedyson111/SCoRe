@@ -27,12 +27,32 @@ python repeat_summary.py --configs A_nohop_centroid A_v3 A_BS1 A_BS2            
   `BS1` and `BS2` are. BS1 is Huiping's ER, BS2 her SC-RG, written by
   `bash baselines/run_baselines.sh`.
 
-**Rows:** edges, density and degree (mean and std), connected %, acyclic %,
-components, edge-count MAE, degree W1, spectrum distance, and the hop error
+**Rows (November 2026):** edges, density and degree (mean and std), connected %,
+acyclic %, components, edge-count MAE, degree W1, **shortest-path W1** and the hop
+error E_h. The spectrum distance is computed but no longer reported.
 
-    E_h = 1/N_test · Σ_i Σ_{r=1..7} |ĥ_i(r) − h_i(r)|
+- **Shortest-path W1**: W1 between the pooled shortest-path lengths of the generated
+  and the real test supernodes, each over the distinct vertex pairs of its largest
+  connected component (`sp_w1`).
+- **E_h** (`js_hop`): per supernode, the Jensen-Shannon divergence (base 2, in [0, 1])
+  between the generated and real hop profiles h_i(1..k) from the centroid, with one
+  extra bin for nodes beyond k hops or unreachable; averaged over test supernodes.
+  Measured from the node the `X:` row marks as the centroid, so only for samples that
+  mark exactly one (v3 and `*_centroid` mark node 0; BS1/BS2 mark the true k-MIS
+  centre). The Real column's E_h is checked to be 0, which verifies the hop histogram
+  against the stored condition.
 
-measured from the node the `X:` row marks as the centroid, so only for samples
-that mark exactly one (v3 and `*_centroid` mark node 0; BS1/BS2 mark the true
-k-MIS centre where it sits in the block). The Real column's E_h is checked to be
-0, which verifies the hop histogram against the stored condition.
+## Scoring another method (competitors)
+
+`parse_generated` reads one block per generated supernode:
+
+    N=<n>
+    supernode=<id> n_true=<n> m_true=<m>
+    X:
+    <n node classes: 1 for the centroid, 0 otherwise>
+    E:
+    <n rows of n entries: 1 = edge>
+
+Samples are matched to the real test supernodes by `supernode=` id (and checked on
+n), so their order does not matter. The test supernodes, as plain files, are in
+`/rds/projects/c/chenhp-graphsyn/competitor_data/<graph>/test_supernodes.jsonl`.

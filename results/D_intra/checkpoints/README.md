@@ -1,4 +1,4 @@
-# Checkpoints — not in this folder
+# Checkpoints -- not in this folder
 
 The trained D_intra models live only on BlueBEAR. They are the one part of
 D_intra that is not reproducible from this folder without a GPU run.
@@ -20,7 +20,7 @@ ls -lh /rds/projects/c/chenhp-graphsyn/D_intra/outputs/*/*transfer_*/checkpoints
 `ModelCheckpoint` runs with `monitor='val/epoch_NLL', save_top_k=5`, so the five
 `epoch=*.ckpt` files in a run are the five **best** epochs, written in the order
 they were found. The newest file is therefore whichever good epoch happened to
-be found last, not the best one — `ls -t | head -1` picks the wrong checkpoint
+be found last, not the best one -- `ls -t | head -1` picks the wrong checkpoint
 and does it silently.
 
 This has already cost one end-to-end run: stage 1 sampled from `epoch=199`

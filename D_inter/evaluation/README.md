@@ -26,9 +26,10 @@ python transfer_summary.py --configs A A_BS1 A_BS2      # Luxembourg (3998 test 
 - A new method is added to `PAIRS` and `LABELS` at the top of the script.
 
 **Rows:** cross edges, cross density and D_out (mean and std), degree W1 (pooled
-cross-degree, both sides), and the out-degree-profile error
+cross-degree, both sides), and the out-degree-profile error, in BOTH directions
+(November 2026):
 
-    E_r = 1/N_test · Σ_i Σ_{d=0..4} |r̂_i(d) − r_i(d)|
+    E_r = 1/N_test · Σ_(i,j) ½ ( Σ_d |r̂_ij(d) − r_ij(d)| + Σ_d |r̂_ji(d) − r_ji(d)| )
 
-where r_i(d) is the fraction of V_i nodes with exactly d cross edges into V_j
-(d = 4 pools ≥ 4).
+where r_ij(d) is the fraction of V_i nodes with d cross edges into V_j, binned
+0, 1, 2, 3, ≥4 for the road networks (DBLP / Collab: 0, 1, 2-3, 4-7, ≥8).

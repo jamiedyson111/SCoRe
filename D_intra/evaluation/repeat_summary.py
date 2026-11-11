@@ -44,9 +44,20 @@ with an error rather than mixing them.
 
 The spread is SAMPLING noise only: every run of a configuration uses the same
 trained checkpoint, so it says nothing about what retraining would change.
+
+GROUPS (Huiping, 9 Nov 2026; Collab, YouTube). --groups test_groups_d_intra.json scores
+ONE generation (--seed, default 0) of each configuration separately on each of the file's
+non-overlapping groups of test supernodes, and summarises across the groups instead of
+across seeds: every cell is mean ± std over the groups, the per-seed sheet becomes a
+per-group sheet (g1..g5), and Real is the mean over the groups of the real blocks.
+
+    python repeat_summary.py --groups ../../results/competitor_data/collab/test_groups_d_intra.json \
+        --samples-dir ../../results/samples/D_intra/collab_groups --tag dblp2coll_k3_s80 \
+        --configs B_v3 Cft_v3 T_v3 O_uncond --out-dir ../../results/D_intra/tables/collab_groups
 """
 import argparse
 import glob
+import json
 import os
 import re
 
@@ -80,6 +91,9 @@ CONFIGS.update({
     "Cft_nohop_centroid": ("C (no h, fine-tuned)",        "Cft", "_nohop"),
     "Cft_v3":             ("C v3 (fine-tuned)",           "Cft", ""),
     "O_uncond":           ("DiGress (private graph only, 80/20)", "O", "_uncond"),
+    # Target: our v3 model trained from scratch on the private graph's 80% alone, no
+    # pretraining (pairs_T_*, extraction/make_target_datasets.py). Same test supernodes.
+    "T_v3":               ("Target (private graph only, 80/20)", "T", ""),
 })
 # Baselines: Huiping's ER (BS1) and SC-RG (BS2), competitors/Baseline/, written by
 # baselines/run_baselines.sh and scored on the same test supernodes: BS1/BS2 on
@@ -231,6 +245,15 @@ def real_row(col, h_target):
     return out
 
 
+def subset(col, keep):
+    """load_column's output restricted to the supernodes in keep (all of them must be there)."""
+    idx = [i for i, sn in enumerate(col["sn"]) if sn in keep]
+    if len(idx) != len(keep):
+        raise SystemExit(f"{len(keep) - len(idx)} supernodes of a group have no generated graph")
+    return dict(col, sn=[col["sn"][i] for i in idx], gen=[col["gen"][i] for i in idx],
+                real=[col["real"][i] for i in idx], pairs=[col["pairs"][i] for i in idx])
+
+
 def fmt(v, dp):
     """A number as text for the sheet; None or nan as a blank cell."""
     return "" if v is None or (isinstance(v, float) and np.isnan(v)) else f"{v:.{dp}f}"
@@ -254,7 +277,12 @@ def main():
     ap.add_argument("--out-dir", default="../../results/D_intra/tables/s80")
     ap.add_argument("--all-rows", action="store_true",
                     help="keep the edge and density rows (left out by default)")
+    ap.add_argument("--groups", default=None,
+                    help="score one generation on each group of this test_groups_d_intra.json")
+    ap.add_argument("--seed", type=int, default=0, help="the generation scored with --groups")
     args = ap.parse_args()
+    groups = ([set(int(s) for s in g) for g in json.load(open(args.groups))["groups"]]
+              if args.groups else None)
     metrics = [m for m in METRICS if args.all_rows or m[0] not in DROPPED]
     test_on_public = {CONFIGS[c][1] == "A" for c in args.configs}
     if len(test_on_public) > 1:
@@ -267,6 +295,8 @@ def main():
     for cfg in args.configs:
         label, letter, psuffix = CONFIGS[cfg]
         files = sorted(glob.glob(os.path.join(args.samples_dir, f"{cfg}_s*.txt")), key=seed_of)
+        if groups is not None:
+            files = [f for f in files if seed_of(f) == args.seed]
         if not files:
             print(f"  {cfg}: no {cfg}_s*.txt in {args.samples_dir}, skipped")
             continue
@@ -279,6 +309,23 @@ def main():
             targets[hops_pairs] = hop_targets(hops_pairs)
         h_target = targets[hops_pairs]
         runs = []
+        if groups is not None:
+            col = load_column(files[0], pairs)
+            reals = []
+            for gi, keep in enumerate(groups, start=1):
+                sub = subset(col, keep)
+                runs.append((gi, score(sub, h_target)))
+                reals.append(real_row(sub, h_target))
+            if sn_ref is None:
+                sn_ref = sorted(set().union(*groups))
+                real = {k: (None if any(r[k] is None for r in reals)
+                            else float(np.mean([r[k] for r in reals]))) for k in reals[0]}
+                blob = col["blob"]
+                test_graph = blob["public" if blob["config"] == "A" else "private"]
+            per_run[cfg] = runs
+            n_runs[cfg] = len(runs)
+            print(f"  {cfg}: seed {args.seed}, {len(runs)} groups of {[len(g) for g in groups]}")
+            continue
         for f in files:
             col = load_column(f, pairs)
             # Every run of every configuration must be scored on the same blocks,
@@ -322,16 +369,24 @@ def main():
             row.append(fmt(float(centre_fn(v)), dp) + (f" \u00b1 {sd}" if sd else ""))
         rows.append(row)
     rows.append([])
-    rows.append([f"{len(sn_ref)} held-out {test_graph.capitalize()} supernodes; "
-                 f"runs per configuration: {', '.join(f'{c}={n_runs[c]}' for c in cfgs)}; "
-                 f"{args.stat} and sample std (ddof=1) across runs, i.e. sampling noise only; "
-                 "E_h is blank where the samples mark no centroid"])
+    if groups is not None:
+        rows.append([f"{len(groups)} non-overlapping groups of {len(groups[0])} held-out "
+                     f"{test_graph.capitalize()} test supernodes ({os.path.basename(args.groups)}); "
+                     f"one generation (seed {args.seed}) per configuration, scored on each group; "
+                     f"{args.stat} and sample std (ddof=1) across the groups; Real is the mean "
+                     "over the groups; E_h is blank where the samples mark no centroid"])
+    else:
+        rows.append([f"{len(sn_ref)} held-out {test_graph.capitalize()} supernodes; "
+                     f"runs per configuration: {', '.join(f'{c}={n_runs[c]}' for c in cfgs)}; "
+                     f"{args.stat} and sample std (ddof=1) across runs, i.e. sampling noise only; "
+                     "E_h is blank where the samples mark no centroid"])
     summary = os.path.join(args.out_dir, f"repeats_summary{suffix}.tsv")
     with open(summary, "w") as f:
         f.write("\n".join("\t".join(r) for r in rows) + "\n")
 
     # ---- every run's raw value, for checking ----------------------------------
-    header = ["Metric"] + [f"{CONFIGS[c][0]} s{s}" for c in cfgs for s, _ in per_run[c]]
+    tag = "g" if groups is not None else "s"
+    header = ["Metric"] + [f"{CONFIGS[c][0]} {tag}{s}" for c in cfgs for s, _ in per_run[c]]
     rows = [header]
     for key, label, dp in metrics:
         rows.append([label] + [fmt(r[key], dp) for c in cfgs for _, r in per_run[c]])

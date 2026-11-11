@@ -1,0 +1,38 @@
+\begin{table}[H]
+\centering
+\caption{$\textbf{Reconstruction quality of the assembled synthetic graph}$
+$\widehat{G}$ $\textbf{ against the private graph }$ $G$ (Vermont, $k{=}7$). Restricted to the subgraph induced on the 1104 held-out test supernodes (their generated insides and the generated cross edges between them), against the same subgraph of $G$; no training supernode appears in it.
+B uses D\_intra and D\_inter trained on Luxembourg only. In C, D\_intra is trained jointly on Luxembourg and the Oldenburg training supernodes (80/20 split by supernode), and D\_inter is the Luxembourg model fine-tuned on the Oldenburg training pairs. D\_inter sees each node's normalised internal degree, computed from D\_intra's generated blocks. Each synthetic column is the
+mean $\pm$ std over 5 independently sampled graphs (sampling noise; one trained
+model per column). BS1 and BS2 reproduce every released count exactly---$\rho_{\mathrm{in}}$
+per supernode and $w_{ij}$ per pair---so they differ from the synthetic columns
+only in \emph{where} the edges go: BS1 (Erd\H{o}s--R\'enyi $G(n,m)$) places them
+uniformly; BS2 (SC-RG) places them subject to each supernode's hop layers $h_i$ and
+each cross block's out-degree profile $r_{i\to j}$. Internal edges are D\_intra's, cross edges
+D\_inter's. GCC is the global clustering coefficient $3\tau_{\triangle}/\tau_{3}$;
+APL is the mean geodesic distance over reachable pairs. Lower is better in the
+bottom block, where the Real column is $0$ by construction.}
+\label{tab:lsyn-vermont-k7-test}
+\begin{tabular}{lrrrrrrr}
+\toprule
+ & B & C & B & C & BS1 & BS2 & Real \\
+\midrule
+Nodes                         & 20024 $\pm$ 0 & 20024 $\pm$ 0 & 20024 $\pm$ 0 & 20024 $\pm$ 0 & 20024 $\pm$ 0 & 20024 $\pm$ 0 & 20024 \\
+Edges                         & 20517.0 $\pm$ 10.8 & 20561.2 $\pm$ 16.5 & 20516.8 $\pm$ 14.2 & 20570.6 $\pm$ 15.9 & 20341.0 $\pm$ 0.0 & 20341.0 $\pm$ 0.0 & 20341.0 \\
+\quad internal (D\_intra)     & 20101.6 $\pm$ 15.6 & 20136.6 $\pm$ 15.7 & 20101.6 $\pm$ 15.6 & 20136.6 $\pm$ 15.7 & 19923.0 $\pm$ 0.0 & 19923.0 $\pm$ 0.0 & 19923.0 \\
+\quad cross (D\_inter)        & 415.4 $\pm$ 5.2 & 424.6 $\pm$ 3.0 & 415.2 $\pm$ 4.1 & 434.0 $\pm$ 1.2 & 418.0 $\pm$ 0.0 & 418.0 $\pm$ 0.0 & 418.0 \\
+Mean degree                   & 2.049 $\pm$ 0.001 & 2.054 $\pm$ 0.002 & 2.049 $\pm$ 0.001 & 2.055 $\pm$ 0.002 & 2.032 $\pm$ 0.000 & 2.032 $\pm$ 0.000 & 2.032 \\
+Density                       & 0.000102 $\pm$ 0.000000 & 0.000103 $\pm$ 0.000000 & 0.000102 $\pm$ 0.000000 & 0.000103 $\pm$ 0.000000 & 0.000101 $\pm$ 0.000000 & 0.000101 $\pm$ 0.000000 & 0.000101 \\
+Components                    & 844.2 $\pm$ 2.8 & 814.6 $\pm$ 2.9 & 843.8 $\pm$ 3.1 & 814.8 $\pm$ 3.0 & 3342.8 $\pm$ 54.4 & 792.0 $\pm$ 0.0 & 792.0 \\
+GCC                           & 0.0104 $\pm$ 0.0011 & 0.0215 $\pm$ 0.0016 & 0.0104 $\pm$ 0.0011 & 0.0213 $\pm$ 0.0016 & 0.0871 $\pm$ 0.0034 & 0.0130 $\pm$ 0.0017 & 0.0308 \\
+APL                           & 10.58 $\pm$ 0.58 & 9.83 $\pm$ 0.18 & 10.56 $\pm$ 0.38 & 9.91 $\pm$ 0.22 & 5.99 $\pm$ 0.15 & 8.52 $\pm$ 0.21 & 11.01 \\
+\midrule
+$RE_{GCC}$ $\downarrow$       & 0.6623 $\pm$ 0.0359 & 0.3024 $\pm$ 0.0530 & 0.6614 $\pm$ 0.0345 & 0.3080 $\pm$ 0.0522 & 1.8323 $\pm$ 0.1092 & 0.5779 $\pm$ 0.0539 & 0.0000 \\
+$\mathrm{deg}W$ $\downarrow$  & 0.2656 $\pm$ 0.0023 & 0.0223 $\pm$ 0.0016 & 0.2621 $\pm$ 0.0024 & 0.0232 $\pm$ 0.0016 & 0.3187 $\pm$ 0.0059 & 0.1529 $\pm$ 0.0031 & 0.0000 \\
+$RE_{APL}$ $\downarrow$       & 0.0507 $\pm$ 0.0383 & 0.1069 $\pm$ 0.0167 & 0.0401 $\pm$ 0.0348 & 0.0996 $\pm$ 0.0196 & 0.4558 $\pm$ 0.0138 & 0.2260 $\pm$ 0.0190 & 0.0000 \\
+Clustering $\downarrow$       & -- & -- & -- & -- & -- & -- & -- \\
+Orbit $\downarrow$            & -- & -- & -- & -- & -- & -- & -- \\
+Spectrum $\downarrow$         & -- & -- & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

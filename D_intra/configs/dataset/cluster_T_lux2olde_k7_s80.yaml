@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# Ours-Target: our conditioned model trained from scratch on the target's train supernodes only (no pretraining) -> test the target; target-train standardisation and edge marginal. extraction/make_target_datasets.py
+pairs_file: 'pairs_T_lux2olde_k7_s80.pt'

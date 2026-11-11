@@ -1,0 +1,19 @@
+Collab D_inter inference cost (one config, one run, A100-80GB; benchmark job 61293679)
+Combined size n_i+n_j	Test pairs	Batch	s/pair (largest pairs of bin)
+1-50	2953	128	0.57
+51-100	7127	128	1.62
+101-150	7253	128	3.53
+151-200	6675	128	6.21
+201-300	8194	128	28.21 (memory-bound at 67 GB; ~15 by size^2 trend)
+301-400	2152	64	29.48
+401-500	387	32	48.00
+501-580	27	27	67.58
+Full-chain check (201-300): 31.29 s/pair vs 28.21 scaled (x1.11 applied below)
+
+Option	Selected test supernodes	D_inter pairs to generate	GPU-h per config (likely - cautious)
+Local D_inter test (5 x 1,000 pairs)	-	5000	8.9 - 17.6
+Partial reconstruction, all test supernodes	1787	34768	61.8 - 121.8
+Partial reconstruction, 1,000 random test supernodes	1000	20699	36.7 - 71.9
+Partial reconstruction, one D_intra group (group 1)	357	7917	15.1 - 30.0
+Partial reconstruction, one D_intra group (group 3, smallest)	357	6493	11.6 - 23.0
+YouTube partial reconstruction, all test supernodes	11016	531439	infeasible (84k pairs > 500 nodes; >2,000 GPU-h for those alone)

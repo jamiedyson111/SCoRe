@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C (combined): LiveJournal + YouTube train -> test YouTube; make_finetune_datasets.py reads Cft's records from it; no condition; Huiping's CB-KMIS (kmis_cb_v4_l10, k=4, b=500), every supernode with n >= 3. extraction/make_partition_datasets.py
+pairs_file: 'pairs_C_live2yout_k4_s80_uncond.pt'

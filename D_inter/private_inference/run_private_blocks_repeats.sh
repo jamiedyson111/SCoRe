@@ -53,6 +53,10 @@ if [ "${1:-}" = "--repeats" ]; then
     REPEATS="${2:?--repeats needs a count}"
     shift 2
 fi
+# --model-sfx SFX: sample the models trained under <name>SFX (e.g. _remb, the r-embedded
+# condition) and tag the output with SFX too, so it never overwrites the originals'.
+MSFX=""
+if [ "${1:-}" = "--model-sfx" ]; then MSFX="${2:?--model-sfx needs a suffix}"; shift 2; fi
 CFG="${1:-}"
 ICFG="${2:-}"
 CKPT="${3:-}"
@@ -74,6 +78,7 @@ case "$CFG" in
        exit 1 ;;
 esac
 ICFG="${ICFG}_s80"           # the clusters tag run_private_clusters_repeats.sh wrote
+MODEL="$MODEL$MSFX"
 
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
 export PYTHONUNBUFFERED=1
@@ -99,7 +104,7 @@ for f in "$CKPT" "$RELEASE"; do
     [ -n "$f" ] && [ -f "$f" ] || { echo "ERROR: not found: ${f:-<none>}" >&2; exit 1; }
 done
 
-TAG="${ICFG}-${CFG}_deg"
+TAG="${ICFG}-${CFG}_deg${MSFX}"
 echo "D_inter: $CFG  dataset=$DATASET    context: D_intra $ICFG    repeats=$REPEATS"
 echo "checkpoint: $CKPT"
 echo "release:    $RELEASE"

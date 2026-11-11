@@ -256,7 +256,10 @@ def apl(A, rng, n_sources, exact_max_nodes=6500):
     exact = n <= exact_max_nodes
     idx = np.arange(n) if exact else rng.choice(n, size=min(n_sources, n), replace=False)
     d = shortest_path(A, method='D', unweighted=True, directed=False, indices=idx)
-    off = ~np.eye(n, dtype=bool)[idx]
+    # every (source, target) entry except source == target; built row by row, as
+    # ~np.eye(n)[idx] needs an n x n array first (52 GB on Collab's 235,868 nodes)
+    off = np.ones((len(idx), n), dtype=bool)
+    off[np.arange(len(idx)), idx] = False
     finite = np.isfinite(d) & off
     return {
         'apl': d[finite].mean() if finite.any() else float('nan'),

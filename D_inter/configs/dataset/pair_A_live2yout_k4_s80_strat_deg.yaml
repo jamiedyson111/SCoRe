@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# A: LiveJournal train (103,850 pairs, w_ij-stratified) -> LiveJournal test (256); condition [n_i, n_j, w_ij, r_ij, r_ji], r bins from the data. dataprep/make_stratified_pairs.py
+pairs_file: 'pairs_inter_A_live2yout_k4_s80_strat_deg.pt'

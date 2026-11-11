@@ -89,6 +89,29 @@ def main(cfg: DictConfig):
 
     blob = datamodule.raw_blob()
     test = blob['splits'][2]
+    # +subset_file=groups.json: only the supernodes of its "groups" (baselines/
+    # make_test_groups.py), so every method is evaluated on the same fixed groups.
+    if cfg.get('subset_file'):
+        import json
+        keep = {int(s) for g in json.load(open(cfg.subset_file))['groups'] for s in g}
+        test = [r for r in test if int(r['sn']) in keep]
+        if len(test) != len(keep):
+            raise SystemExit(f"{cfg.subset_file}: {len(keep) - len(test)} supernodes are not in the test split")
+        print(f"subset_file: {len(test)} test supernodes ({cfg.subset_file})")
+    # +subset=N: a fixed random N of the test supernodes (seed 0, the same N for every
+    # model), for test sets too large to sample whole (YouTube: 11,016).
+    if cfg.get('subset'):
+        keep = np.random.default_rng(0).permutation(len(test))[:int(cfg.subset)]
+        test = [test[i] for i in sorted(keep)]
+        print(f"subset: {len(test)} of {len(blob['splits'][2])} test supernodes (seed 0)")
+    # +sort_by_size=true: batch supernodes of similar size together, so a batch is not
+    # padded to one large member (Collab: ~5x less padded work). The scorer matches
+    # samples to supernodes by id, so the order of the output file does not matter.
+    if cfg.get('sort_by_size'):
+        global PACKED
+        PACKED = True
+        test = sorted(test, key=lambda r: int(r['n']))
+        print(f"sorted by size and packed: {len(batches(test))} batches")
     print(f"generating for {len(test)} test supernodes")
     print(f"condition ({len(blob['cond_names'])} dims): {blob['cond_names']}")
 
@@ -117,13 +140,37 @@ def seed_all(seed):
     torch.cuda.manual_seed_all(seed)
 
 
+# With +sort_by_size the batches are PACKED: consecutive (size-sorted) supernodes share
+# a batch while batch x n_max^2 stays within what BATCH graphs of the largest size
+# need, up to PACK_MAX graphs. A 500-step reverse chain costs about the same per batch
+# whatever its size, so this cuts the number of batches (Collab: 224 -> ~30) without
+# ever using more memory than plain batches of the largest graphs.
+PACKED = False
+PACK_MAX = 512
+
+
+def batches(test):
+    """(first index, records) for each batch, in order."""
+    if not PACKED:
+        return [(s, test[s:s + BATCH]) for s in range(0, len(test), BATCH)]
+    budget = BATCH * max(int(r['n']) for r in test) ** 2
+    out, start = [], 0
+    while start < len(test):
+        end = start + 1
+        while (end < len(test) and end - start < PACK_MAX
+               and (end - start + 1) * int(test[end]['n']) ** 2 <= budget):
+            end += 1
+        out.append((start, test[start:end]))
+        start = end
+    return out
+
+
 def sample_split(model, test, device, seed, out_path):
     """One conditional sample per test supernode, written to out_path."""
     seed_all(seed)
     written = 0
     with open(out_path, 'w') as f:
-        for start in range(0, len(test), BATCH):
-            chunk = test[start:start + BATCH]
+        for start, chunk in batches(test):
 
             # every graph in a batch is padded to the same n_max, so n_i is passed
             # per-graph and the node_mask does the trimming

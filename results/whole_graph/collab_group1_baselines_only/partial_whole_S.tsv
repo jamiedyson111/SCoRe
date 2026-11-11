@@ -1,0 +1,20 @@
+Metric	Real	ER	SC-RG
+Nodes	10180	10180 ± 0	10180 ± 0
+Edges	29679	29679 ± 0	29679 ± 0
+Mean degree	5.8308	5.8308 ± 0.0000	5.8308 ± 0.0000
+Components	232.0	338.6 ± 14.0	232.0 ± 0.0
+GCC	0.6003	0.1333 ± 0.0016	0.1313 ± 0.0003
+APL	11.762	12.582 ± 0.183	12.738 ± 0.172
+
+Error	ER	SC-RG
+RE mean degree (%)	0.00 ± 0.00	0.00 ± 0.00
+RE density (%)	0.00 ± 0.00	0.00 ± 0.00
+RE components (%)	45.95 ± 6.05	0.00 ± 0.00
+RE_GCC (%)	77.79 ± 0.27	78.13 ± 0.05
+degW	1.5549 ± 0.0089	1.3389 ± 0.0152
+RE_APL (%)	6.98 ± 1.55	8.30 ± 1.47
+Clustering	2.0000 ± 0.0000	2.0000 ± 0.0000
+Orbit	2.0000 ± 0.0000	2.0000 ± 0.0000
+Spectrum	0.1829 ± 0.0013	0.1697 ± 0.0013
+
+Partial reconstruction of Collab, the S part: the subgraph induced on the 357 selected supernodes' nodes. Ours: one generation (D_intra C and D_inter C, seed 0); ER and SC-RG: 5 seeds, mean ± sample std. APL from 100 BFS sources (the same in every column). Spectrum only on the S part.

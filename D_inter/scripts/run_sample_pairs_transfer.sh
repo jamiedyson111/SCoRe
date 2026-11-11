@@ -69,6 +69,10 @@ if [ "${1:-}" = "--real-x" ]; then
     REAL_X=1
     shift
 fi
+# --model-sfx SFX: sample the models trained under <name>SFX (e.g. _remb, the r-embedded
+# condition) and name the run with SFX too, so it never overwrites the originals' samples.
+MSFX=""
+if [ "${1:-}" = "--model-sfx" ]; then MSFX="${2:?--model-sfx needs a suffix}"; shift 2; fi
 CFG="${1:-}"
 CKPT="${2:-}"
 
@@ -91,9 +95,9 @@ case "${CFG%_nor}" in
        exit 1 ;;
 esac
 DATASET="$DATASET$NOR"
-MODEL="$MODEL$NOR"
+MODEL="$MODEL$NOR$MSFX"
 [ "${CFG%_nor}" != A ] || [ -z "$GSFX" ] || { echo "ERROR: A is Luxembourg's; --graph does not apply" >&2; exit 1; }
-RUN="pairs_${CFG%_nor}${GSFX}_s80_deg$NOR"
+RUN="pairs_${CFG%_nor}${GSFX}_s80_deg$NOR$MSFX"
 CONTEXT=()
 if [ "$REAL_X" = 1 ]; then
     [ "${CFG%_nor}" = A ] || RUN="${RUN}_realX"

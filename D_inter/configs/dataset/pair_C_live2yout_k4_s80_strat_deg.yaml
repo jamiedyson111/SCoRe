@@ -1,0 +1,5 @@
+name: pair_lux
+remove_h: null
+datadir: 'data/pair_lux/'
+# C: A's model FINE-TUNED on 80,000 w_ij-stratified YouTube training pairs (A's statistics and edge marginal) -> YouTube test (5 x 1,000); condition [n_i, n_j, w_ij, r_ij, r_ji], r bins from the data. dataprep/make_stratified_pairs.py
+pairs_file: 'pairs_inter_C_live2yout_k4_s80_strat_deg.pt'

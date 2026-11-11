@@ -1,0 +1,13 @@
+Metric	Real	B v3 (hops + centroid)	C v3 (fine-tuned)	Target (private graph only, 80/20)	DiGress (private graph only, 80/20)	BS1 (ER)	BS2 (SC-RG)
+Degree (median)	3.0	2.8 ± 0.4	3.0 ± 0.0	3.0 ± 0.0	2.0 ± 0.0	4.2 ± 0.4	4.0 ± 0.0
+Degree (mean)	5.1590	4.6742 ± 0.3229	5.2545 ± 0.4400	5.4695 ± 0.5506	4.0161 ± 0.1222	5.1590 ± 0.4066	5.1590 ± 0.4066
+Degree (std)	6.1336	6.3992 ± 0.5238	7.2236 ± 0.9912	7.4016 ± 1.4032	5.7448 ± 0.4869	3.8263 ± 0.5622	4.1177 ± 0.5353
+Connected (%)	100.00	98.21 ± 0.81	98.54 ± 0.50	98.43 ± 0.76	97.54 ± 0.23	79.10 ± 2.16	100.00 ± 0.00
+Acyclic (%)	7.79	7.62 ± 0.92	8.01 ± 1.23	7.62 ± 0.78	8.40 ± 1.33	6.89 ± 0.76	7.79 ± 1.14
+Components (mean)	1.0000	1.0185 ± 0.0076	1.0157 ± 0.0042	1.0179 ± 0.0106	1.0269 ± 0.0038	1.3574 ± 0.0342	1.0000 ± 0.0000
+Edge-count MAE	0.0000	12.3148 ± 3.6175	6.1613 ± 1.6455	9.4510 ± 2.6541	30.0896 ± 6.5212	0.0000 ± 0.0000	0.0000 ± 0.0000
+Degree dist. vs real (W1)	0.0000	0.6549 ± 0.1587	0.5390 ± 0.1306	0.5638 ± 0.2137	1.2076 ± 0.3945	1.3060 ± 0.1009	1.0555 ± 0.1250
+Shortest-path W1	0.0000	0.1782 ± 0.0751	0.2043 ± 0.0740	0.2890 ± 0.0931	0.2493 ± 0.1059	0.1185 ± 0.0874	0.1864 ± 0.1116
+Hop error E_h	0.0000	0.0479 ± 0.0013	0.0450 ± 0.0049	0.0526 ± 0.0037		0.1647 ± 0.0056	0.0000 ± 0.0000
+
+5 non-overlapping groups of 357 held-out Collab test supernodes (test_groups_d_intra.json); one generation (seed 0) per configuration, scored on each group; mean and sample std (ddof=1) across the groups; Real is the mean over the groups; E_h is blank where the samples mark no centroid

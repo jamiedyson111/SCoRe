@@ -1,0 +1,5 @@
+name: cluster_lux
+remove_h: null
+datadir: 'data/cluster_lux/'
+# C as a FINE-TUNE: A's model trained further on the YouTube train supernodes -> test YouTube (A's standardisation and edge marginal kept); condition [n, rho_in, k]; Huiping's CB-KMIS (kmis_cb_v4_l10, k=4, b=500), every supernode with n >= 3. extraction/make_partition_datasets.py
+pairs_file: 'pairs_Cft_live2yout_k4_s80_nohop.pt'

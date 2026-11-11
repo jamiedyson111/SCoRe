@@ -1,7 +1,7 @@
 # Changes to stock DiGress
 
 Baseline: `cvignac/DiGress` at commit `780242b`. A pristine clone is at
-`../DiGress/` — `diff -r ../DiGress/src src` shows exactly what follows and
+`../DiGress/` -- `diff -r ../DiGress/src src` shows exactly what follows and
 nothing else.
 
 Everything here is **generic conditional-generation machinery**. Nothing in this
@@ -9,7 +9,7 @@ folder is specific to D_intra or D_inter; those live in their own folders and ar
 copied into each experiment folder (formerly by `sync.sh`, now in archive/), which is what makes
 D_intra/ and D_inter/ self-contained, uploadable trees.
 
-## `from src.*` and PYTHONPATH — resolved, but know the history
+## `from src.*` and PYTHONPATH -- resolved, but know the history
 
 Stock DiGress mixes two import styles: `from src.diffusion import
 diffusion_utils` and bare `from diffusion.noise_schedule import ...`. Where the
@@ -18,8 +18,8 @@ first one lands depends entirely on how `src` is found.
 **On BlueBEAR `src` is not pip-installed at all**, so `from src import utils` in
 `main.py` died with `ModuleNotFoundError: No module named 'src'`.
 
-**Locally it *was* installed** — an editable install pointing at `../DiGress/`,
-the pristine clone — so `src.*` imports silently resolved to unmodified upstream
+**Locally it *was* installed** -- an editable install pointing at `../DiGress/`,
+the pristine clone -- so `src.*` imports silently resolved to unmodified upstream
 files while bare imports resolved to this tree. That cost a debugging cycle: a
 change to `mask_distributions` in `src/diffusion/diffusion_utils.py` was loaded
 from the pristine copy and simply ignored, with no error.
@@ -46,10 +46,10 @@ cd D_inter && PYTHONPATH=$PWD python src/main.py dataset=pair_lux +experiment=pa
 
 `_restrict_to_cross` still lives in `diffusion_model_discrete.py` rather than in
 `diffusion_utils.mask_distributions` where it belongs. That was a workaround for
-the trap above and is no longer necessary — it is merely not worth moving now,
+the trap above and is no longer necessary -- it is merely not worth moving now,
 since `diffusion_utils.py` is byte-identical to stock and that is worth keeping.
 
-## `src/diffusion_model_discrete.py` — 9 hunks + partially-observed mode
+## `src/diffusion_model_discrete.py` -- 9 hunks + partially-observed mode
 
 DiGress already carries a per-graph vector `y` that is never noised and never
 predicted, which makes it a natural conditioning channel. But every stock dataset
@@ -65,14 +65,14 @@ leaves it width 0, so several code paths silently discard it. The edits:
 6. The reverse loop no longer overwrites `y`. `sample_p_zs_given_zt` returns a
    width-0 `y` every step, which would discard the condition after one step.
 7. `sample_batch` falls back to a bank of real training conditions when called
-   with none — which is what DiGress's own periodic validation sampling does.
+   with none -- which is what DiGress's own periodic validation sampling does.
    Without this a conditionally-trained model crashes at the first validation.
 8. `sample_batch` accepts an explicit `num_nodes` tensor, so generated graphs
    can be forced to the true size of the thing being conditioned on.
 9. `apply_noise` puts `y` into `noisy_data['y_t']` instead of `z_t.y`. **Bug
    fix, not a feature.** The line above it is
    `PlaceHolder(X=X_t, E=E_t, y=y).type_as(X_t)`, and `X_t` is what `F.one_hot`
-   returns — `int64`. So `type_as` was casting the float condition to an
+   returns -- `int64`. So `type_as` was casting the float condition to an
    integer and truncating it: a standardised `0.72` reached the model as `0`,
    `-0.31` as `0`. D_intra's three features were being quantised to whole
    numbers on every training and validation step. `mask()` never touches `y`,
@@ -98,7 +98,7 @@ attribute absent, `getattr` returns `False`, and none of the code below runs.
 
 The contract: `X` is a one-hot **side** indicator, and an entry of `E` is a
 cross entry exactly when its two endpoints have different node classes. That one
-rule is what the whole mode is built on — it makes the mask a function of the
+rule is what the whole mode is built on -- it makes the mask a function of the
 data rather than of node ordering, and because `X` is never noised, the mask is
 exact at every training step and every reverse step rather than decaying with t.
 
@@ -123,7 +123,7 @@ terms into `nan` rather than zero.
 It lives here rather than in `diffusion_utils.mask_distributions`, which is
 where it naturally belongs, purely because of the `from src.*` trap above.
 
-## `src/main.py` — 4 hunks
+## `src/main.py` -- 4 hunks
 
 New dataset branches, purely additive. Each branch imports its dataset module
 *inside* the branch, so a missing module only fails if you actually select that
@@ -140,18 +140,18 @@ dataset.
 ## Known issue
 
 `main.py` has a `coarse_sbm` branch importing `datasets/coarse_dataset.py`, which
-is not here — it was lost in a local re-sync. The import is inside the branch, so
+is not here -- it was lost in a local re-sync. The import is inside the branch, so
 it only fails if you run `dataset=coarse_sbm`.
 
 ## What is deliberately NOT here
 
 - `src/datasets/cluster_dataset.py`, `src/sample_conditional.py`, the `cluster_*`
-  configs and the `pairs_*.pt` data — all D_intra, in `../D_intra/`
-- `src/datasets/pair_dataset.py` and the `pair_*` configs — D_inter, in
+  configs and the `pairs_*.pt` data -- all D_intra, in `../D_intra/`
+- `src/datasets/pair_dataset.py` and the `pair_*` configs -- D_inter, in
   `../D_inter/`. `pair_mode` above is generic; the side encoding, the
   cross-block-only edge marginal and the W_out-degree metric are not, and stay
   in that folder
-- `outputs/`, `results/`, `generated_samples/` — DiGress rebuilds these
+- `outputs/`, `results/`, `generated_samples/` -- DiGress rebuilds these
 - `logs/` is empty but must exist; SLURM fails immediately if `--output`'s
   directory is missing
 

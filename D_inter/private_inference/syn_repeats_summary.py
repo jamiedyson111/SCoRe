@@ -62,9 +62,11 @@ LABELS = {'B': 'B (Lux -> Olde)', 'C': 'C (joint Lux+Olde -> Olde)',
           # the internal-degree D_inter (X_i = internal degree; C fine-tuned), run as
           #   python syn_repeats_summary.py --configs B_v3_s80-B_deg C_v3_s80-C_deg \
           #       --out-dir ../../results/D_inter/tables/syn_s80_deg
-          'B_deg': 'B (Lux -> Olde)', 'C_deg': 'C (Lux, fine-tuned on Olde -> Olde)'}
+          'B_deg': 'B (Lux -> Olde)', 'C_deg': 'C (Lux, fine-tuned on Olde -> Olde)',
+          # r_ij, r_ji embedded by one shared MLP (model.r_embed_dim=1)
+          'B_deg_remb': 'B (r embedded)', 'C_deg_remb': 'C (r embedded)'}
 BASELINE_LABELS = {'BS1': 'BS1 (ER)', 'BS2': 'BS2 (SC-RG)'}
-TEX_LABELS = {'B': r'B', 'C': r'C', 'B_deg': r'B', 'C_deg': r'C'}
+TEX_LABELS = {'B': r'B', 'C': r'C', 'B_deg': r'B', 'C_deg': r'C', 'B_deg_remb': r'B', 'C_deg_remb': r'C'}
 
 # (key, label, tex label, decimals). Order is the row order of both tables.
 ROWS = [('nodes',          'Nodes',               r'Nodes',                       0),
@@ -264,6 +266,8 @@ def label(c, tex=False):
     icfg, inter = c.split('-')
     if icfg.startswith('Cft_v3') and inter == 'C_deg':     # both halves of C fine-tuned
         return 'C' if tex else 'C (fine-tuned)'
+    if icfg.startswith('Cft_v3') and inter == 'C_deg_remb':
+        return 'C' if tex else 'C (fine-tuned, r embedded)'
     known = icfg.startswith(f"{inter.split('_')[0]}_v3") and inter in LABELS
     return ((TEX_LABELS if tex else LABELS)[inter] if known else c)
 

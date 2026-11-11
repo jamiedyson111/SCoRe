@@ -47,6 +47,12 @@ model:
                                 # y is an input condition, never a prediction target.
     extra_features: 'all'
 
+    # r embedding: each 5-bin cross-degree profile r_ij, r_ji is replaced by
+    # MLP_r(r) of width r_embed_dim (one MLP for both), so the condition is
+    # [n_i, n_j, w_ij, e_ij, e_ji]. null = the 10 bins enter y raw, as before.
+    r_embed_dim: null
+    r_embed_hidden: 32
+
     hidden_mlp_dims: { 'X': 128, 'E': 64, 'y': 128 }
 
     # dx % n_head == 0

@@ -249,6 +249,7 @@ class PairDatasetInfos(AbstractDatasetInfos):
         self.node_feat_dim = 1
 
         blob = datamodule.raw_blob()
+        self.cond_names = list(blob['cond_names'])     # read by the model's r embedding
         self._val_records = blob['splits'][1]
         self._test_records = blob['splits'][2]
 

@@ -95,16 +95,89 @@ def generated_features(test, path):
     return feats
 
 
+# +pair_budget=N: batches packed while batch x (n_i + n_j)^2 <= N, up to BATCH pairs
+# (Collab benchmark, A100 80 GB: 64 x 300^2 keeps every size range fast and in memory).
+PAIR_BUDGET = None
+POS = None          # each record's position in the full test split (+subset_file)
+# +partial_file=/abs/path.pt: the blocks done so far are saved there every SAVE_EVERY
+# seconds, and a rerun with the same file skips them, so a failed or timed-out job
+# loses at most SAVE_EVERY of work instead of everything.
+PARTIAL = None
+SAVE_EVERY = 600
+
+
+def batches(test, order):
+    """(first position, record indices) per batch, in size order."""
+    if not PAIR_BUDGET:
+        return [(s, order[s:s + BATCH]) for s in range(0, len(order), BATCH)]
+    out, s = [], 0
+    while s < len(order):
+        e = s + 1
+        while (e < len(order) and e - s < BATCH and
+               (e - s + 1) * (test[order[e]]['n_i'] + test[order[e]]['n_j']) ** 2 <= PAIR_BUDGET):
+            e += 1
+        out.append((s, order[s:e]))
+        s = e
+    return out
+
+
+def hybrid_features(test, samples_path):
+    """(x_i, x_j) per record: GENERATED internal degrees for the supernodes D_intra
+    generated (its conditional_samples file -- the test supernodes), REAL ones for every
+    other supernode (training supernodes keep their original structure)."""
+    from datasets.pair_dataset import internal_degree, record_features
+    gen, lines, i = {}, open(samples_path).read().splitlines(), 0
+    while i < len(lines):
+        if not lines[i].startswith('N='):
+            i += 1
+            continue
+        n = int(lines[i][2:])
+        sn = int(lines[i + 1].split()[0].split('=')[1])
+        while not lines[i].startswith('E'):
+            i += 1
+        A = torch.tensor([[int(v) for v in lines[i + 1 + r].split()] for r in range(n)]) == 1
+        gen[sn] = internal_degree(torch.nonzero(A | A.T).T.contiguous(), n)
+        i += 1 + n
+    feats, used = [], 0
+    for r in test:
+        real = record_features(r)
+        pair = []
+        for side, sn, n in ((0, int(r['sn_i']), int(r['n_i'])), (1, int(r['sn_j']), int(r['n_j']))):
+            if sn in gen:
+                if len(gen[sn]) != n:
+                    raise SystemExit(f"{samples_path}: supernode {sn} has {len(gen[sn])} nodes, pair says {n}")
+                pair.append(gen[sn])
+                used += 1
+            else:
+                pair.append(real[side])
+        feats.append(tuple(pair))
+    print(f"  context: {len(gen)} generated supernodes; {used} of {2 * len(test)} pair sides generated, "
+          f"the rest real")
+    return feats
+
+
 def sample_split(model, test, feats, device, seed, meta, out_path):
     """One cross block per test record, written to out_path. feats: (x_i, x_j) each."""
     from datasets.pair_dataset import build_given
+    import time
     seed_all(seed)
     # Sorted by combined size so each batch pads close to its own maximum.
     order = sorted(range(len(test)), key=lambda i: test[i]['n_i'] + test[i]['n_j'])
     blocks, exact = [None] * len(test), 0
+    if PARTIAL and os.path.exists(PARTIAL):
+        prev = torch.load(PARTIAL, map_location='cpu', weights_only=False)
+        if prev.get('pairs_file') != meta.get('pairs_file') or prev.get('checkpoint') != meta.get('checkpoint'):
+            raise SystemExit(f"{PARTIAL} was written for another dataset or checkpoint")
+        at = {p: i for i, p in enumerate(POS)}
+        for b in prev['blocks']:
+            if b is not None and b['idx'] in at:
+                blocks[at[b['idx']]] = b
+                exact += int(b['edge_index'].shape[1] == b['w'])
+        order = [i for i in order if blocks[i] is None]
+        print(f"  resuming from {PARTIAL}: {len(test) - len(order)} blocks already done", flush=True)
+    last_save = time.time()
     with torch.no_grad():
-        for start in range(0, len(order), BATCH):
-            idx = order[start:start + BATCH]
+        for start, idx in batches(test, order):
             chunk = [test[i] for i in idx]
             cond_y = torch.stack([r['y'] for r in chunk]).float().to(device)
             given, n_nodes = build_given([feats[i] for i in idx], device)
@@ -117,12 +190,18 @@ def sample_split(model, test, feats, device, seed, meta, out_path):
                 vj = torch.nonzero(side == 1, as_tuple=True)[0]
                 B = (edge_types[vi][:, vj] == 1)
                 s, d = torch.nonzero(B, as_tuple=True)
-                blocks[i] = {'idx': i, 'sn_i': int(r['sn_i']), 'sn_j': int(r['sn_j']),
+                blocks[i] = {'idx': POS[i], 'sn_i': int(r['sn_i']), 'sn_j': int(r['sn_j']),
                              'n_i': int(r['n_i']), 'n_j': int(r['n_j']), 'w': int(r['w']),
                              'edge_index': torch.stack([s, d]).long().cpu()}
                 exact += int(int(B.sum()) == int(r['w']))
-            print(f"  {min(start + BATCH, len(test))}/{len(test)}", flush=True)
+            print(f"  {len(test) - len(order) + start + len(idx)}/{len(test)}", flush=True)
+            if PARTIAL and time.time() - last_save > SAVE_EVERY:
+                torch.save(dict(meta, seed=seed, blocks=blocks), PARTIAL + '.tmp')
+                os.replace(PARTIAL + '.tmp', PARTIAL)
+                last_save = time.time()
     torch.save(dict(meta, seed=seed, blocks=blocks), out_path)
+    if PARTIAL:
+        torch.save(dict(meta, seed=seed, blocks=blocks), PARTIAL)
     print(f"  |B_ij| exactly w_ij: {exact}/{len(test)} ({100.0 * exact / len(test):.1f}%)")
     print(f"wrote {out_path}")
 
@@ -130,8 +209,10 @@ def sample_split(model, test, feats, device, seed, meta, out_path):
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
     # +sample_batch=N overrides the batch (default 32, which the Oldenburg runs used).
-    global BATCH
+    global BATCH, PAIR_BUDGET, POS, PARTIAL
+    PARTIAL = cfg.get('partial_file')
     BATCH = int(cfg.get('sample_batch', BATCH))
+    PAIR_BUDGET = cfg.get('pair_budget')
     assert cfg.general.test_only, 'pass general.test_only="\'/abs/path/to/ckpt\'"'
     from datasets.pair_dataset import PairGraphDataModule, PairDatasetInfos, record_features
 
@@ -160,6 +241,21 @@ def main(cfg: DictConfig):
     # file that does not cover the whole split, so this cannot leak into a table.
     if cfg.get('limit'):
         test = test[:int(cfg.limit)]
+    # +subset_file=test_groups_d_inter.json: only the pairs of its "groups" (baselines/
+    # make_test_groups.py); each block keeps its idx in the full test split.
+    pos = list(range(len(test)))
+    if cfg.get('subset_file'):
+        import json
+        groups = json.load(open(cfg.subset_file))['groups']
+        pos = sorted({int(p['idx']) for g in groups for p in g})
+        for g in groups:
+            for p in g:
+                r = test[int(p['idx'])]
+                if (int(r['sn_i']), int(r['sn_j'])) != (int(p['sn_i']), int(p['sn_j'])):
+                    raise SystemExit(f"{cfg.subset_file}: pair {p} does not match the test split")
+        test = [test[i] for i in pos]
+        print(f"subset_file: {len(test)} test pairs ({cfg.subset_file})")
+    POS = pos
     print(f"{cfg.dataset.pairs_file}: generating {len(test)} cross blocks")
     print(f"condition ({len(blob['cond_names'])} dims): {list(blob['cond_names'])}")
 
@@ -172,11 +268,20 @@ def main(cfg: DictConfig):
                          f"{cfg.clusters_tag}_s<seed>.pt" if generated else
                          "REAL X_i, X_j (from the true L_i, L_j)"))
     real_feats = None if generated else [record_features(r) for r in test]
+    # +gen_samples=<D_intra conditional_samples file>: generated X for the supernodes in
+    # it, real X for the rest (partial reconstruction: training supernodes unchanged).
+    if cfg.get('gen_samples'):
+        assert not generated, "+gen_samples replaces +clusters_dir/+clusters_tag"
+        real_feats = hybrid_features(test, cfg.gen_samples)
+        print(f"context: GENERATED X^ for the supernodes of {cfg.gen_samples}, REAL X otherwise")
 
     out_dir = HydraConfig.get().runtime.output_dir
     meta = {'pairs_file': str(cfg.dataset.pairs_file),
             'checkpoint': str(cfg.general.test_only),
-            'context': 'generated' if generated else 'real'}
+            'context': ('generated' if generated else
+                        'gen_samples (generated test supernodes, real others)' if cfg.get('gen_samples')
+                        else 'real'),
+            'gen_samples': cfg.get('gen_samples')}
     repeats = int(cfg.get('repeats', 1))
     seed0 = int(cfg.get('seed', 0))
     runs = []
