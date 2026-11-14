@@ -179,17 +179,17 @@ elsewhere and read from `.npz` files (fine graph, assignment, centroids):
 ## Repository
 
 ```
-D_intra/        D_intra: code, configs, datasets, job scripts. Uploaded to BlueBEAR.
-D_inter/        D_inter: code, configs, datasets, job scripts, assembly. Uploaded to BlueBEAR.
+D_intra/        D_intra: code, configs, datasets, job scripts.
+D_inter/        D_inter: code, configs, datasets, job scripts, assembly. 
 results/        tables, run costs and the fixed test groups (samples and checkpoints stay local)
-baselines/      BS1 (Huiping's ER) and BS2 (her SC-RG): runners, full-graph and test-group versions
-competitors/    Baseline/: Huiping's ER (BS1) and SC-RG (BS2) scripts
+baselines/      BS1 and BS2: runners, full-graph and test-group versions
+competitors/    Baseline/: BS1 and BS2 scripts
 coarsening_comparison/  coarsening statistics of the candidate graphs
 scripts/bluebear/       job submitters for the collaboration and social-graph experiments
 archive/        old and unused files, kept for reference (not tracked)
 k-mis-pool/     the k-MIS coarsening code (Bacciu et al.)
 graph-coarsening/  Loukas coarsening library, for reference
-make_graph.sh   steps 7-8 for ONE graph, end to end, including the BlueBEAR jobs
+make_graph.sh   steps 7-8 for ONE graph, end to end.
 make_tables.sh  the single-run tables of both projects
 make_final_tables.sh, make_vermont_tables.sh   the repeated-run tables (Oldenburg, Vermont)
 fetch_s80.sh, submit_final.sh                  fetch results from / submit the final runs on BlueBEAR
